@@ -17,6 +17,8 @@ models:
   audio_encoder:
     name: microsoft/wavlm-base-plus
     dtype: float32                     # float16 gives NaN on the GTX 1660 SUPER (and is slower)
+  emotion:
+    run: fusion_ctx3                   # Phase 2 run used live: checkpoints/<run>/model.pt
   llm:                                 # llama.cpp: ~7x faster than transformers here
     gguf_repo: Qwen/Qwen2.5-1.5B-Instruct-GGUF
     gguf_file: qwen2.5-1.5b-instruct-q4_k_m.gguf
@@ -32,3 +34,10 @@ realtime:                              # targets defined in docs/DESIGN.md secti
     first_token: 1500
     full_reply: 3000
   max_reply_words: 30
+
+pipeline:
+  robot_name: Pip
+  vad_threshold: 0.5                   # Silero speech probability needed to count as speech
+  speech_pad_ms: 100                   # audio kept before and after each detected turn
+  max_turn_seconds: 15                 # cut very long turns (same cap as the audio features)
+  reply_history_turns: 6               # earlier turns the reply model sees

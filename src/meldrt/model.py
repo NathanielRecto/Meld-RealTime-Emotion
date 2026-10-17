@@ -53,6 +53,10 @@ class EmotionModel(nn.Module):
                 nn.Dropout(dropout), nn.Linear(2 * hidden, hidden), nn.GELU(),
                 nn.Dropout(dropout), nn.Linear(hidden, N_CLASSES))
 
+    def audio_only(self, audio: torch.Tensor) -> torch.Tensor:
+        """Logits from the audio branch alone: the fast "voice" tag, available before any words."""
+        return self.audio_head(self.audio_proj(self.layer_pool(audio)))
+
     def forward(self, input_ids=None, attention_mask=None, audio=None, audio_present=None) -> dict:
         out = {}
         if self.use_text:

@@ -1,0 +1,414 @@
+{
+  "input": [
+    "dia240_utt8  Cecilia [neutral]: You're not the fan who's dying are you?",
+    "dia240_utt9  Joey [joy]: No. No, I'm Joey Tribbiani; we did a scene together yesterday. I-I'm the guy in the coma!",
+    "dia240_utt10  Cecilia [surprise]: Oh that was a real person?!"
+  ],
+  "events": [
+    {
+      "type": "speech_start"
+    },
+    {
+      "type": "turn_end",
+      "speech_seconds": 1.9
+    },
+    {
+      "type": "state",
+      "stage": "voice",
+      "turn": 1,
+      "transcript": null,
+      "speech_seconds": 1.9,
+      "emotion": {
+        "label": "neutral",
+        "confidence": 0.53,
+        "probs": {
+          "anger": 0.103,
+          "disgust": 0.056,
+          "fear": 0.048,
+          "joy": 0.091,
+          "neutral": 0.53,
+          "sadness": 0.11,
+          "surprise": 0.063
+        }
+      },
+      "cues": {
+        "loudness_db": -32.5,
+        "pitch_hz": 177.8,
+        "pitch_variation_semitones": 3.97,
+        "vs_earlier": {}
+      },
+      "t_ms": 40.0
+    },
+    {
+      "type": "speech_start"
+    },
+    {
+      "type": "state",
+      "stage": "final",
+      "turn": 1,
+      "transcript": "You're not the fan who's dying, are you?",
+      "emotion": {
+        "label": "neutral",
+        "confidence": 0.707,
+        "probs": {
+          "anger": 0.05,
+          "disgust": 0.008,
+          "fear": 0.027,
+          "joy": 0.066,
+          "neutral": 0.707,
+          "sadness": 0.071,
+          "surprise": 0.07
+        }
+      },
+      "sentiment": "neutral",
+      "by_modality": {
+        "words": {
+          "label": "neutral",
+          "confidence": 0.612
+        },
+        "voice": {
+          "label": "neutral",
+          "confidence": 0.53
+        }
+      },
+      "modalities_agree": true,
+      "cues": {
+        "loudness_db": -32.5,
+        "pitch_hz": 177.8,
+        "pitch_variation_semitones": 3.97,
+        "words_per_second": 4.22,
+        "vs_earlier": {}
+      },
+      "mood": -0.091,
+      "mood_trend": "starting",
+      "latency_ms": {
+        "voice_tag": 40.0,
+        "asr_done": 990.4,
+        "final_tag": 1028.3
+      },
+      "t_ms": 1028.3
+    },
+    {
+      "type": "reply_done",
+      "turn": 1,
+      "text": "I'm not the one dying, that's quite comforting.",
+      "notes": "They clearly sound calm.",
+      "latency_ms": {
+        "voice_tag": 40.0,
+        "asr_done": 990.4,
+        "final_tag": 1028.3,
+        "first_token": 1166.3,
+        "reply_done": 1521.3
+      },
+      "t_ms": 1521.3
+    },
+    {
+      "type": "turn_end",
+      "speech_seconds": 0.39
+    },
+    {
+      "type": "state",
+      "stage": "voice",
+      "turn": 2,
+      "transcript": null,
+      "speech_seconds": 0.39,
+      "emotion": {
+        "label": "joy",
+        "confidence": 0.31,
+        "probs": {
+          "anger": 0.135,
+          "disgust": 0.057,
+          "fear": 0.051,
+          "joy": 0.31,
+          "neutral": 0.273,
+          "sadness": 0.047,
+          "surprise": 0.127
+        }
+      },
+      "cues": {
+        "loudness_db": -35.1,
+        "vs_earlier": {
+          "loudness": "same"
+        }
+      },
+      "t_ms": 894.7
+    },
+    {
+      "type": "speech_start"
+    },
+    {
+      "type": "ignored",
+      "turn": 2,
+      "reason": "no words recognised",
+      "t_ms": 1451.0
+    },
+    {
+      "type": "turn_end",
+      "speech_seconds": 4.68
+    },
+    {
+      "type": "state",
+      "stage": "voice",
+      "turn": 3,
+      "transcript": null,
+      "speech_seconds": 4.68,
+      "emotion": {
+        "label": "neutral",
+        "confidence": 0.469,
+        "probs": {
+          "anger": 0.05,
+          "disgust": 0.043,
+          "fear": 0.101,
+          "joy": 0.165,
+          "neutral": 0.469,
+          "sadness": 0.131,
+          "surprise": 0.04
+        }
+      },
+      "cues": {
+        "loudness_db": -29.2,
+        "pitch_hz": 129.0,
+        "pitch_variation_semitones": 4.36,
+        "vs_earlier": {
+          "loudness": "louder",
+          "pitch": "lower",
+          "expressiveness": "same"
+        }
+      },
+      "t_ms": 62.9
+    },
+    {
+      "type": "state",
+      "stage": "final",
+      "turn": 3,
+      "transcript": "No, I'm Joey Tribbiani. We did a scene together yesterday. I'm the guy in the coma.",
+      "emotion": {
+        "label": "neutral",
+        "confidence": 0.923,
+        "probs": {
+          "anger": 0.003,
+          "disgust": 0.0,
+          "fear": 0.001,
+          "joy": 0.061,
+          "neutral": 0.923,
+          "sadness": 0.01,
+          "surprise": 0.001
+        }
+      },
+      "sentiment": "neutral",
+      "by_modality": {
+        "words": {
+          "label": "neutral",
+          "confidence": 0.925
+        },
+        "voice": {
+          "label": "neutral",
+          "confidence": 0.469
+        }
+      },
+      "modalities_agree": true,
+      "cues": {
+        "loudness_db": -29.2,
+        "pitch_hz": 129.0,
+        "pitch_variation_semitones": 4.36,
+        "words_per_second": 3.42,
+        "vs_earlier": {
+          "loudness": "louder",
+          "pitch": "lower",
+          "expressiveness": "same",
+          "pace": "same"
+        }
+      },
+      "mood": -0.022,
+      "mood_trend": "steady",
+      "latency_ms": {
+        "voice_tag": 62.9,
+        "asr_done": 1324.9,
+        "final_tag": 1377.8
+      },
+      "t_ms": 1377.8
+    },
+    {
+      "type": "speech_start"
+    },
+    {
+      "type": "reply_done",
+      "turn": 3,
+      "text": "Oh, Joey! It must be really tough to be in a coma. I'm sorry to hear about you.",
+      "notes": "They clearly sound calm. Compared with earlier, their voice is louder, lower.",
+      "latency_ms": {
+        "voice_tag": 62.9,
+        "asr_done": 1324.9,
+        "final_tag": 1377.8,
+        "first_token": 1635.3,
+        "reply_done": 2263.9
+      },
+      "t_ms": 2263.9
+    },
+    {
+      "type": "turn_end",
+      "speech_seconds": 1.8
+    },
+    {
+      "type": "state",
+      "stage": "voice",
+      "turn": 4,
+      "transcript": null,
+      "speech_seconds": 1.8,
+      "emotion": {
+        "label": "anger",
+        "confidence": 0.4,
+        "probs": {
+          "anger": 0.4,
+          "disgust": 0.109,
+          "fear": 0.033,
+          "joy": 0.116,
+          "neutral": 0.101,
+          "sadness": 0.067,
+          "surprise": 0.174
+        }
+      },
+      "cues": {
+        "loudness_db": -29.0,
+        "pitch_hz": 275.9,
+        "pitch_variation_semitones": 2.83,
+        "vs_earlier": {
+          "loudness": "same",
+          "pitch": "higher",
+          "expressiveness": "flatter"
+        }
+      },
+      "t_ms": 45.0
+    },
+    {
+      "type": "state",
+      "stage": "final",
+      "turn": 4,
+      "transcript": "Is this a real person?",
+      "emotion": {
+        "label": "surprise",
+        "confidence": 0.885,
+        "probs": {
+          "anger": 0.015,
+          "disgust": 0.003,
+          "fear": 0.008,
+          "joy": 0.02,
+          "neutral": 0.061,
+          "sadness": 0.008,
+          "surprise": 0.885
+        }
+      },
+      "sentiment": "neutral",
+      "by_modality": {
+        "words": {
+          "label": "surprise",
+          "confidence": 0.903
+        },
+        "voice": {
+          "label": "anger",
+          "confidence": 0.4
+        }
+      },
+      "modalities_agree": false,
+      "cues": {
+        "loudness_db": -29.0,
+        "pitch_hz": 275.9,
+        "pitch_variation_semitones": 2.83,
+        "words_per_second": 2.78,
+        "vs_earlier": {
+          "loudness": "same",
+          "pitch": "higher",
+          "expressiveness": "flatter",
+          "pace": "slower"
+        }
+      },
+      "mood": -0.018,
+      "mood_trend": "steady",
+      "latency_ms": {
+        "voice_tag": 45.0,
+        "asr_done": 736.0,
+        "final_tag": 787.3
+      },
+      "t_ms": 787.3
+    },
+    {
+      "type": "reply_done",
+      "turn": 4,
+      "text": "I'm not sure if you're joking or if this is real, but either way, I'm glad to meet you.",
+      "notes": "They clearly sound surprised. Their words sound surprised but their voice sounds angry, so they may not mean the words literally. Compared with earlier, their voice is higher, flatter, slower.",
+      "latency_ms": {
+        "voice_tag": 45.0,
+        "asr_done": 736.0,
+        "final_tag": 787.3,
+        "first_token": 1092.2,
+        "reply_done": 1759.5
+      },
+      "t_ms": 1759.5
+    }
+  ],
+  "final_state": {
+    "type": "state",
+    "stage": "final",
+    "turn": 4,
+    "transcript": "Is this a real person?",
+    "emotion": {
+      "label": "surprise",
+      "confidence": 0.885,
+      "probs": {
+        "anger": 0.015,
+        "disgust": 0.003,
+        "fear": 0.008,
+        "joy": 0.02,
+        "neutral": 0.061,
+        "sadness": 0.008,
+        "surprise": 0.885
+      }
+    },
+    "sentiment": "neutral",
+    "by_modality": {
+      "words": {
+        "label": "surprise",
+        "confidence": 0.903
+      },
+      "voice": {
+        "label": "anger",
+        "confidence": 0.4
+      }
+    },
+    "modalities_agree": false,
+    "cues": {
+      "loudness_db": -29.0,
+      "pitch_hz": 275.9,
+      "pitch_variation_semitones": 2.83,
+      "words_per_second": 2.78,
+      "vs_earlier": {
+        "loudness": "same",
+        "pitch": "higher",
+        "expressiveness": "flatter",
+        "pace": "slower"
+      }
+    },
+    "mood": -0.018,
+    "mood_trend": "steady",
+    "latency_ms": {
+      "voice_tag": 45.0,
+      "asr_done": 736.0,
+      "final_tag": 787.3
+    },
+    "t_ms": 787.3
+  },
+  "reply": {
+    "type": "reply_done",
+    "turn": 4,
+    "text": "I'm not sure if you're joking or if this is real, but either way, I'm glad to meet you.",
+    "notes": "They clearly sound surprised. Their words sound surprised but their voice sounds angry, so they may not mean the words literally. Compared with earlier, their voice is higher, flatter, slower.",
+    "latency_ms": {
+      "voice_tag": 45.0,
+      "asr_done": 736.0,
+      "final_tag": 787.3,
+      "first_token": 1092.2,
+      "reply_done": 1759.5
+    },
+    "t_ms": 1759.5
+  }
+}

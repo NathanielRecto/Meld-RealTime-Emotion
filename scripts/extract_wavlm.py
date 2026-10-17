@@ -24,10 +24,7 @@ from transformers import AutoFeatureExtractor, AutoModel
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from meldrt.data import SPLITS, load_manifest  # noqa: E402
-
-SR = 16_000
-MAX_SECONDS = 15.0  # covers 99.7% of clips untouched (p95 is 7.9 s)
-MIN_SECONDS = 0.5   # WavLM's convolutional front end needs a minimum length
+from meldrt.features import MAX_SECONDS, SR, wavlm_layer_means  # noqa: E402  (shared with live use)
 
 
 @torch.inference_mode()
@@ -49,11 +46,7 @@ def main() -> None:
             if not row.audio_ok:
                 continue
             audio, _ = sf.read(row.wav_path, dtype="float32", frames=int(MAX_SECONDS * SR))
-            if len(audio) < MIN_SECONDS * SR:
-                audio = np.pad(audio, (0, int(MIN_SECONDS * SR) - len(audio)))
-            x = extractor(audio, sampling_rate=SR, return_tensors="pt").input_values.to("cuda", model.dtype)
-            hidden = model(x, output_hidden_states=True).hidden_states  # n_layers x (1, frames, dim)
-            feats[i] = torch.stack([h[0].mean(dim=0) for h in hidden]).float().cpu().numpy()
+            feats[i] = wavlm_layer_means(model, extractor, audio)
         np.save(out_dir / f"wavlm_{split}.npy", feats)
         (out_dir / f"wavlm_{split}_ids.txt").write_text("\n".join(df.clip_id), encoding="utf-8")
         print(f"{split}: {len(df)} clips in {time.perf_counter() - t0:.0f} s -> {out_dir / f'wavlm_{split}.npy'}")

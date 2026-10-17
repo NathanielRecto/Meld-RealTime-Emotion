@@ -1,0 +1,24 @@
+{
+  "split": "test",
+  "asr": "faster-whisper small (int8_float16)",
+  "gpu": "NVIDIA GeForce GTX 1660 SUPER",
+  "clips": 2610,
+  "word_error_rate": 0.3071,
+  "exact_match_pct": 30.2,
+  "empty_transcript_pct": 2.0,
+  "lines_with_exclamation_pct": {
+    "meld": 30.7,
+    "whisper": 10.7
+  },
+  "lines_with_question_pct": {
+    "meld": 26.3,
+    "whisper": 26.5
+  },
+  "asr_ms": {
+    "p50": 446.6,
+    "p95": 693.7,
+    "max": 12235.2
+  },
+  "audio_s_median": 2.6,
+  "real_time_factor_median": 0.174
+}

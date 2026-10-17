@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 import tarfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -32,11 +33,13 @@ from sklearn.metrics import f1_score
 from tqdm import tqdm
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from meldrt.data import previous_turns  # noqa: E402  (shared with training and evaluation)
+
 SR = 16_000
 SPLITS = ["train", "dev", "test"]
 VIDEO_DIR = {"train": "train_splits", "dev": "dev_splits_complete", "test": "output_repeated_splits_test"}
 EMOTIONS = ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"]
-PREV_TURNS = 3  # how many earlier utterances of the same dialogue to keep as context
 MANIFEST_COLUMNS = [
     "split", "clip_id", "dialogue_id", "utterance_id", "speaker", "text", "text_raw", "emotion",
     "sentiment", "n_words", "prev_turns", "wav_path", "audio_ok", "duration_s",
@@ -171,18 +174,6 @@ def wav_seconds(path: Path) -> float | None:
     return info.frames / info.samplerate if info.frames > 0 else None
 
 
-def previous_turns(df: pd.DataFrame) -> list[str]:
-    """For each utterance, the PREV_TURNS utterances before it in the same dialogue, as JSON.
-    Only speaker and words: earlier emotion labels would not be known in a live conversation."""
-    out = []
-    for _, g in df.groupby("dialogue_id", sort=False):
-        turns = list(zip(g.speaker, g.text))
-        for i in range(len(turns)):
-            ctx = [{"speaker": s, "text": t} for s, t in turns[max(0, i - PREV_TURNS):i]]
-            out.append(json.dumps(ctx, ensure_ascii=False))
-    return out
-
-
 def step_manifest(root: Path) -> None:
     print("[manifest]")
     out_dir = root / "manifests"
@@ -194,7 +185,7 @@ def step_manifest(root: Path) -> None:
         df["emotion"] = df.emotion.str.strip().str.lower()
         df["sentiment"] = df.sentiment.str.strip().str.lower()
         df["n_words"] = df.text.str.split().str.len()
-        df["prev_turns"] = previous_turns(df)
+        df["prev_turns"] = [json.dumps(p, ensure_ascii=False) for p in previous_turns(df)]
         df["wav_path"] = [str(root / "audio16k" / split / f"{c}.wav") for c in df.clip_id]
         durations = [wav_seconds(Path(p)) for p in tqdm(df.wav_path, desc=f"  {split}", unit=" wavs")]
         df["audio_ok"] = [d is not None for d in durations]

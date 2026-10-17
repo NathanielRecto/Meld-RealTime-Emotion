@@ -10,6 +10,7 @@ import pandas as pd
 EMOTIONS = ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"]
 LABEL_ID = {e: i for i, e in enumerate(EMOTIONS)}
 SPLITS = ["train", "dev", "test"]
+PREV_TURNS = 3  # earlier utterances of the same dialogue kept as context
 
 
 def load_manifest(meld_root: str | Path, split: str) -> pd.DataFrame:
@@ -17,6 +18,28 @@ def load_manifest(meld_root: str | Path, split: str) -> pd.DataFrame:
     df = pd.read_csv(Path(meld_root) / "manifests" / f"{split}.csv", keep_default_na=False, na_values=[""])
     df["label"] = df.emotion.map(LABEL_ID)
     df["prev_turns"] = df.prev_turns.map(json.loads)
+    return df
+
+
+def previous_turns(df: pd.DataFrame, n: int = PREV_TURNS) -> list[list[dict]]:
+    """For each row of a table sorted by dialogue and utterance, the n utterances before it in the
+    same dialogue. Only speaker and words: earlier emotion labels would not be known in a live
+    conversation."""
+    out = []
+    for _, g in df.groupby("dialogue_id", sort=False):
+        turns = list(zip(g.speaker, g.text))
+        for i in range(len(turns)):
+            out.append([{"speaker": s, "text": t} for s, t in turns[max(0, i - n):i]])
+    return out
+
+
+def with_whisper_text(df: pd.DataFrame, meld_root: str | Path, split: str) -> pd.DataFrame:
+    """Swap in Whisper's transcript (scripts/transcribe_meld.py) for every utterance and rebuild
+    each context window from it: live, the earlier turns also come from speech-to-text."""
+    asr = pd.read_csv(Path(meld_root) / "asr" / f"{split}.csv", keep_default_na=False, na_values=[""])
+    df = df.copy()
+    df["text"] = df.clip_id.map(asr.set_index("clip_id").asr_text).fillna("")
+    df["prev_turns"] = previous_turns(df)
     return df
 
 
