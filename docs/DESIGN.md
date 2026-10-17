@@ -91,9 +91,9 @@ does not change its count. Measured values come from `scripts/smoke_test.py` (se
 |---|---|---|
 | Voice detector | Silero VAD | 0.5M |
 | Speech-to-text | Whisper small (faster-whisper, int8 weights) | 241.7M |
-| Text encoder | RoBERTa-base | 124.6M |
-| Audio encoder | WavLM-base-plus | 94.4M |
-| Fusion head | small MLP | < 1M (Phase 2) |
+| Text encoder | RoBERTa-base, fine-tuned, without the unused pooler | 124.1M |
+| Audio encoder | WavLM-base-plus (frozen) | 94.4M |
+| Emotion heads | fusion + per-modality heads + WavLM layer weighting (Phase 2) | 0.5M |
 | Reply LLM | Qwen2.5-1.5B-Instruct, 4-bit GGUF via llama.cpp | 1.54B |
 | **Total** | | **2.00B of 6B** |
 
@@ -196,7 +196,97 @@ on test.
 - Fear and disgust have under 300 training examples each, so class weighting matters and macro
   F1 will stay low.
 
-## 8. Decision log
+## 8. Phase 2: emotion models
+
+**One model, three answers.** `src/meldrt/model.py` has a text branch (RoBERTa-base, fine-tuned)
+and an audio branch (frozen WavLM-base-plus features plus a small trained head), joined by a
+fusion head. In fusion mode each branch also keeps its own classifier head, trained alongside the
+fused one with an auxiliary loss (weight 0.5). So one forward pass returns "words say X, voice
+says Y, combined says Z", which the state JSON needs. The auxiliary losses also stop the fused
+head from ignoring the weaker audio branch.
+
+How the inputs are built:
+- **Text:** the utterance first, then the previous 3 turns as a second segment, e.g.
+  `B: So let's talk a little bit about your duties.` + `A: … B: You must've had your hands full.
+  A: That I did.` Speakers are renamed A, B, C… within each window, so the model learns turn-taking
+  instead of memorising *Friends* characters. Live, the person and the robot are just two letters.
+  Median length is 49 tokens and the max is 153, so nothing hits the 192-token cap.
+- **Audio:** `scripts/extract_wavlm.py` runs frozen WavLM once per clip (10.7 min for all 13.7k
+  clips) and stores each of its 13 layers averaged over time. The audio branch learns a softmax
+  weighting over those layers, as in the SUPERB benchmark. Audio is capped at the first 15 s,
+  which leaves 99.7% of clips untouched and stops the misaligned multi-minute clips from
+  dominating.
+
+Training (`scripts/train_emotion.py`):
+- **Loss:** cross-entropy with class weights proportional to (1 / frequency)^0.5. That's a
+  middle ground: full inverse frequency would weight fear about 17x neutral and hurt weighted F1.
+- **Modality dropout:** in fusion mode, a training example's audio is hidden 15% of the time, so
+  the fused head still works when audio is missing. Two clips have no audio at all.
+- **Optimiser:** AdamW. RoBERTa at 1.5e-5 and the heads at 5e-4, with linear warmup (10%) then
+  decay, 5 epochs at batch 16. Audio-only uses 40 epochs at batch 64, because it trains just a
+  small head.
+- **Selection:** the epoch with the best dev weighted F1 is kept, and test is scored exactly once
+  with that checkpoint. Nothing is tuned on test.
+- **Precision:** fp32. fp16 mixed precision was **4x slower** per step on this card (1.75 s vs
+  0.42 s over 100 steps), for the same no-tensor-core reason as WavLM in section 6.
+
+Runs, each one compared on the same test set:
+
+| Run | What it tests |
+|---|---|
+| `audio_only` | how much emotion the voice carries on its own |
+| `text_ctx0` | words of the utterance alone |
+| `text_ctx3` | what conversation history adds |
+| `fusion_ctx3` | what tone adds on top of words + history (the model the robot uses) |
+
+**Results** (2026-10-17, one seed each; full numbers in `reports/phase2_<run>.json`):
+
+| Run | Dev W-F1 | Test W-F1 | Test macro F1 | ≤ 3 words | 4+ words | Train time |
+|---|---|---|---|---|---|---|
+| Always "neutral" | – | 0.313 | 0.093 | – | – | – |
+| `audio_only` | 0.473 | 0.477 | 0.312 | 0.483 | 0.473 | 0.8 min |
+| `text_ctx0` | 0.597 | **0.638** | 0.477 | 0.724 | 0.606 | 10.9 min |
+| `text_ctx3` | 0.616 | 0.635 | **0.486** | 0.705 | 0.608 | 23.2 min |
+| `fusion_ctx3` | **0.623** | 0.631 | 0.479 | 0.704 | 0.604 | 19.0 min |
+
+Per-class test F1:
+
+| Run | anger | disgust | fear | joy | neutral | sadness | surprise |
+|---|---|---|---|---|---|---|---|
+| `audio_only` | 0.380 | 0.126 | 0.094 | 0.339 | 0.648 | 0.237 | 0.361 |
+| `text_ctx0` | 0.510 | 0.272 | 0.243 | 0.606 | 0.782 | 0.365 | 0.559 |
+| `text_ctx3` | 0.498 | 0.327 | 0.254 | 0.607 | 0.772 | 0.405 | 0.540 |
+| `fusion_ctx3` | 0.481 | 0.262 | 0.277 | 0.605 | 0.770 | 0.407 | 0.550 |
+
+What the numbers say:
+1. **Text carries most of the signal.** About 0.64 weighted F1 is in line with published
+   RoBERTa-base results on MELD (about 0.62–0.65); the best published systems reach about 0.65–0.70.
+2. **Audio alone is far above the floor** (0.48 vs 0.31) **and is right in different places.** On
+   10.3% of test lines the audio model is right where the text model (`text_ctx0`) is wrong; on
+   26.2% both are wrong.
+3. **On MELD's own transcripts, neither context nor audio gave a clear test gain.** The three
+   text-based runs sit within 0.7 points of each other, which is inside run-to-run noise for a
+   single seed. Fusion scored best on dev (+0.7 over `text_ctx3`) and is best on fear, the rarest
+   class, but it doesn't beat text-only on test overall. Inside the fusion model, the text head
+   alone scores 0.624 and the audio head alone 0.464.
+4. **Likely reason: MELD's transcripts already carry tone.** The transcriber heard the clip and
+   wrote "What?!" or "Hey!". The 3-word slice, expected to be where audio helps, is where text
+   does *best* (0.72). It's mostly greetings and reactions ("hey!", "hi!", "what?"), with the
+   same class mix as the full test set. Whisper punctuates from tone less reliably, so audio's
+   real value should show on **Whisper transcripts**. That check moves up to run next.
+5. **WavLM layers:** the learned weights lean slightly towards layers 8–10. That matches the
+   SUPERB finding that emotion information peaks mid-to-upper network, but the weights are
+   nearly flat (0.067–0.095).
+
+**Model for the robot: `fusion_ctx3`.** It is selected by the dev rule (best dev weighted F1),
+ties text-only on test, and is the only run that gives the per-modality views the state JSON
+needs. Size: 124.6M parameters, i.e. RoBERTa-base without its unused pooler (124.1M) plus 0.5M
+of heads, so the section 4 total stays at 2.00B.
+
+**Not done (yet):** several seeds per run to measure the noise band, and a probability-level
+late-fusion baseline.
+
+## 9. Decision log
 
 | Date | Decision | Why |
 |---|---|---|
@@ -212,8 +302,12 @@ on test.
 | 2026-10-16 | Normalise transcript punctuation to ASCII (`text`), keep the original (`text_raw`) | Training text should look like Whisper's live output |
 | 2026-10-16 | Context = the previous 3 utterances, speaker and words only, no earlier labels | Earlier emotions aren't known during a live conversation |
 | 2026-10-16 | Tar extraction in Python with a member filter (plain files only, inside the target folder) | Archives are untrusted input, and Python 3.10.11 lacks `tarfile`'s built-in filter |
+| 2026-10-16 | Fusion = one jointly trained model with per-modality auxiliary heads | Per-modality explanations come from the same forward pass, and no second-stage combiner has to be trained on text features that are already overfit to train |
+| 2026-10-16 | Speakers renamed A/B/C within each context window | Avoids memorising *Friends* characters; matches a two-party live conversation |
+| 2026-10-16 | Train in fp32 | fp16 mixed precision was 4x slower per step on the GTX 1660 SUPER |
+| 2026-10-16 | Audio capped at the first 15 s | Misaligned multi-minute clips; 99.7% of clips are unaffected |
 
-## 9. External components
+## 10. External components
 
 Licences checked 2026-10-16 from each model's Hugging Face card or source repository.
 "Changed" and "checked" fill in as each component is trained or evaluated.
@@ -228,6 +322,6 @@ Licences checked 2026-10-16 from each model's Hugging Face card or source reposi
 | Qwen2.5-1.5B-Instruct (Q4_K_M GGUF) | [Qwen/Qwen2.5-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) | Apache-2.0 | prompt only | smoke test |
 | llama.cpp runtime | [abetlen/llama-cpp-python](https://github.com/abetlen/llama-cpp-python) 0.3.4 | MIT | no | smoke test |
 
-## 10. Limitations and what was left out
+## 11. Limitations and what was left out
 
 *Filled in at the end.*
