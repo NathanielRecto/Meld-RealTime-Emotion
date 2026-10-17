@@ -62,8 +62,10 @@ def parse_args() -> argparse.Namespace:
 # --- data ----------------------------------------------------------------------------------
 
 
-def load_split(root: Path, split: str, args, tok):
-    df = load_manifest(root, split)
+def load_split(root: Path, split: str, args, tok, df=None):
+    """Model inputs for one split. Pass `df` to use a table with different text, e.g. Whisper's
+    transcripts (scripts/evaluate.py); it must keep the manifest's row order."""
+    df = load_manifest(root, split) if df is None else df
     feats = None
     if args.mode != "text":
         feats = np.load(root / "features" / f"wavlm_{split}.npy", mmap_mode="r")

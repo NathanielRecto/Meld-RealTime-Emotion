@@ -10,8 +10,9 @@ Built on the [MELD](https://affective-meld.github.io/) dataset. Everything runs 
 consumer GPU, within a 6B total-parameter budget.
 
 > **Status:** Phase 2 done. Emotion models trained on MELD: text + audio fusion reaches test
-> weighted F1 0.631 (text alone 0.638, audio alone 0.477, always-"neutral" 0.313). Everything runs
-> on a 6 GB GTX 1660 SUPER within 2.00B parameters. See [docs/DESIGN.md](docs/DESIGN.md) for the
+> weighted F1 0.631 on MELD's typed transcripts (text alone 0.638, audio alone 0.477,
+> always-"neutral" 0.313). On live-style Whisper transcripts it's 0.536 against 0.530 for text
+> alone. Everything runs on a 6 GB GTX 1660 SUPER within 2.00B parameters. See [docs/DESIGN.md](docs/DESIGN.md) for the
 > decisions, the definition of "real-time", and the measurements.
 
 ## Training the emotion models
@@ -28,6 +29,14 @@ python scripts/train_emotion.py --mode fusion --context 3 --name fusion_ctx3
 
 Each run writes `reports/phase2_<name>.json`. Weights go to `checkpoints/<name>/`, which git
 ignores. Times on the GTX 1660 SUPER: 11–23 min per text or fusion run.
+
+To score the trained models on what the robot would actually read, Whisper's transcripts
+instead of MELD's typed ones:
+
+```powershell
+python scripts/transcribe_meld.py dev test                   # ~30 min; also measures ASR time
+python scripts/evaluate.py text_ctx0 text_ctx3 fusion_ctx3   # writes reports/eval_asr_<run>.json
+```
 
 ## Setup (Windows, NVIDIA GPU)
 
@@ -90,6 +99,8 @@ scripts/smoke_test.py  Phase 0: do all models fit and run on the GPU together?
 scripts/prepare_meld.py   Phase 1: extract MELD, convert audio, build the tables
 scripts/extract_wavlm.py  Phase 2: precompute frozen WavLM features
 scripts/train_emotion.py  Phase 2: train and score text / audio / fusion models
+scripts/transcribe_meld.py  Whisper transcripts with the live settings, plus ASR time and errors
+scripts/evaluate.py       re-score trained models on Whisper transcripts
 src/meldrt/            shared code: data loading and input formatting, the emotion model
 tests/assets/          a tiny synthetic speech clip used by the tests
 ```

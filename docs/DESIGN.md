@@ -286,7 +286,64 @@ of heads, so the section 4 total stays at 2.00B.
 **Not done (yet):** several seeds per run to measure the noise band, and a probability-level
 late-fusion baseline.
 
-## 9. Decision log
+## 9. Whisper transcripts vs MELD's typed text
+
+Live, the robot only reads what speech-to-text writes, so the Phase 2 models were re-scored on
+Whisper transcripts (2026-10-17). `scripts/transcribe_meld.py` ran the live ASR settings (Whisper
+small, int8, greedy decoding, audio capped at 15 s) over dev and test. `scripts/evaluate.py` then
+swapped Whisper's text in for each utterance *and* its context turns and scored the unchanged
+checkpoints. Full numbers: `reports/asr_{dev,test}.json` and `reports/eval_asr_<run>.json`.
+
+**What Whisper writes:**
+
+| | dev | test |
+|---|---|---|
+| Word error rate vs MELD's text | 27.5% | 30.7% |
+| Lines transcribed exactly (ignoring punctuation and case) | 30.0% | 30.2% |
+| Lines with "!": MELD / Whisper | 31.5% / 13.3% | 30.7% / 10.7% |
+| Lines with "?": MELD / Whisper | 26.4% / 26.2% | 26.3% / 26.5% |
+| ASR time per clip, p50 / p95 | 451 / 680 ms | 447 / 694 ms |
+
+- **"!" nearly vanishes but "?" doesn't.** A question shows in its word order. An exclamation is
+  heard, so MELD's typists were writing tone into the text.
+- **The error rate is high because *Friends* audio is hard:** laugh tracks, overlapping speech,
+  and clips that catch the end of the previous line.
+- **ASR time hardly depends on clip length.** Whisper always encodes a 30 s window, so a 2.5 s
+  clip costs about the same as the 5.4 s smoke-test clip.
+
+**Emotion scores on Whisper text (test weighted F1):**
+
+| Model | MELD text | Whisper text | Change |
+|---|---|---|---|
+| `text_ctx0` | 0.638 | 0.530 | −0.108 |
+| `text_ctx3` | 0.635 | 0.529 | −0.106 |
+| `fusion_ctx3` | 0.631 | **0.536** | **−0.095** |
+| `fusion_ctx3`, audio head alone | 0.464 | 0.464 | 0 (doesn't read text) |
+
+Per-class change for `text_ctx0` → its Whisper score: anger −0.16, disgust −0.04, fear −0.11,
+**joy −0.21**, neutral −0.09, sadness 0.00, surprise −0.09. Fusion on Whisper text beats
+text-only on joy (0.428 vs 0.395) and fear (0.177 vs 0.130).
+
+What this means:
+1. **Real speech-to-text costs about 11 points.** About 0.53 is the honest estimate for the
+   live system; the 0.64 from section 8 was helped by human punctuation.
+2. **The excited emotions lose most.** Joy and anger, the ones typists mark with "!", drop the
+   most, and sadness doesn't move. The 3-word lines lose their advantage too (0.72 → 0.52),
+   so that advantage was mostly punctuation.
+3. **Fusion degrades least, so it's the best of the three on realistic input, but only just.**
+   It leads by 0.6 points on test, while `text_ctx3` is ahead on dev (0.529 vs 0.519). With one
+   seed that's a tie, not a win. Audio's help shows where expected (joy, fear), just not yet
+   overall.
+4. **The models learned on "!"-rich text and are tested on plain text.** That train/test
+   mismatch is the likely limiter. The fix is to train on Whisper transcripts of the training set
+   too, so the text branch can't lean on punctuation and the fusion head learns when to trust
+   the voice. Cost: about 80 min to transcribe train and about 45 min to retrain two models.
+5. **Latency: speech-to-text alone breaks the tag budget.** Its p95 of 694 ms exceeds the 500 ms
+   emotion-tag target (section 2) before RoBERTa or WavLM even run. Phase 3 has to fix this,
+   using some combination of Whisper base (293 ms in section 6), transcribing while the person
+   is still talking, or a speech-to-text model whose cost scales with clip length.
+
+## 10. Decision log
 
 | Date | Decision | Why |
 |---|---|---|
@@ -307,7 +364,7 @@ late-fusion baseline.
 | 2026-10-16 | Train in fp32 | fp16 mixed precision was 4x slower per step on the GTX 1660 SUPER |
 | 2026-10-16 | Audio capped at the first 15 s | Misaligned multi-minute clips; 99.7% of clips are unaffected |
 
-## 10. External components
+## 11. External components
 
 Licences checked 2026-10-16 from each model's Hugging Face card or source repository.
 "Changed" and "checked" fill in as each component is trained or evaluated.
@@ -322,6 +379,6 @@ Licences checked 2026-10-16 from each model's Hugging Face card or source reposi
 | Qwen2.5-1.5B-Instruct (Q4_K_M GGUF) | [Qwen/Qwen2.5-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) | Apache-2.0 | prompt only | smoke test |
 | llama.cpp runtime | [abetlen/llama-cpp-python](https://github.com/abetlen/llama-cpp-python) 0.3.4 | MIT | no | smoke test |
 
-## 11. Limitations and what was left out
+## 12. Limitations and what was left out
 
 *Filled in at the end.*
