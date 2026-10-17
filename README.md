@@ -9,9 +9,25 @@ out how they feel from **what they say and how they say it**, and returns:
 Built on the [MELD](https://affective-meld.github.io/) dataset. Everything runs locally on one
 consumer GPU, within a 6B total-parameter budget.
 
-> **Status:** Phase 0 done. All models fit and run together on a 6 GB GTX 1660 SUPER (2.00B
-> parameters, 3.6 GB of GPU memory). See [docs/DESIGN.md](docs/DESIGN.md) for the decisions, the
-> definition of "real-time", and the measurements.
+> **Status:** Phase 2 done. Emotion models trained on MELD: text + audio fusion reaches test
+> weighted F1 0.631 (text alone 0.638, audio alone 0.477, always-"neutral" 0.313). Everything runs
+> on a 6 GB GTX 1660 SUPER within 2.00B parameters. See [docs/DESIGN.md](docs/DESIGN.md) for the
+> decisions, the definition of "real-time", and the measurements.
+
+## Training the emotion models
+
+After the data steps below:
+
+```powershell
+python scripts/extract_wavlm.py                                         # ~11 min, once
+python scripts/train_emotion.py --mode audio  --name audio_only         # ~1 min
+python scripts/train_emotion.py --mode text   --context 0 --name text_ctx0
+python scripts/train_emotion.py --mode text   --context 3 --name text_ctx3
+python scripts/train_emotion.py --mode fusion --context 3 --name fusion_ctx3
+```
+
+Each run writes `reports/phase2_<name>.json`. Weights go to `checkpoints/<name>/`, which git
+ignores. Times on the GTX 1660 SUPER: 11–23 min per text or fusion run.
 
 ## Setup (Windows, NVIDIA GPU)
 
@@ -43,8 +59,26 @@ consumer GPU, within a 6B total-parameter budget.
 MELD (about 10.9 GB) is kept **outside** the repo. The default location is `G:/datasets/MELD`;
 change `paths.meld_root` in `configs/default.yaml` for your machine.
 
-Download: <https://web.eecs.umich.edu/~mihalcea/downloads/MELD.Raw.tar.gz>
-(a download-and-prepare script comes in Phase 1).
+1. Download `MELD.Raw.tar.gz` into that folder:
+   <https://web.eecs.umich.edu/~mihalcea/downloads/MELD.Raw.tar.gz>
+2. Prepare it. This extracts the archives, converts every clip to 16 kHz mono WAV, and builds one
+   table per split:
+   ```powershell
+   python scripts/prepare_meld.py
+   ```
+   Each step can also run on its own (`extract`, `audio`, `manifest`, `stats`), and every step skips
+   work that is already done, so an interrupted run can simply be restarted.
+
+What it produces, next to the download:
+
+```
+MELD.Raw/              extracted label CSVs and video clips
+audio16k/<split>/      dia<D>_utt<U>.wav, 16 kHz mono
+manifests/<split>.csv  one row per utterance: speaker, text, emotion, sentiment,
+                       previous 3 turns, WAV path, duration
+```
+
+Data statistics land in `reports/phase1_data.json`.
 
 ## Layout
 
@@ -53,5 +87,9 @@ configs/default.yaml   model names, paths, real-time targets
 docs/DESIGN.md         decisions, assumptions, evidence
 reports/               measured results (JSON)
 scripts/smoke_test.py  Phase 0: do all models fit and run on the GPU together?
+scripts/prepare_meld.py   Phase 1: extract MELD, convert audio, build the tables
+scripts/extract_wavlm.py  Phase 2: precompute frozen WavLM features
+scripts/train_emotion.py  Phase 2: train and score text / audio / fusion models
+src/meldrt/            shared code: data loading and input formatting, the emotion model
 tests/assets/          a tiny synthetic speech clip used by the tests
 ```
