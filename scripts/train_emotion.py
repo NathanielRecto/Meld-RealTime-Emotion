@@ -32,7 +32,7 @@ from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from meldrt.data import EMOTIONS, class_weights, format_text, load_manifest  # noqa: E402
+from meldrt.data import EMOTIONS, class_weights, format_text, load_manifest, with_whisper_text  # noqa: E402
 from meldrt.model import EmotionModel  # noqa: E402
 
 LABELS = list(range(len(EMOTIONS)))
@@ -43,6 +43,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--mode", choices=["text", "audio", "fusion"], required=True)
     ap.add_argument("--name", required=True, help="run name for the report and checkpoint folder")
     ap.add_argument("--context", type=int, default=3, help="earlier turns given to the text branch")
+    ap.add_argument("--text-source", choices=["meld", "whisper"], default="meld",
+                    help="train and score on MELD's typed transcripts or on Whisper's (scripts/transcribe_meld.py)")
     ap.add_argument("--epochs", type=int, default=None, help="default: 5 with text, 40 audio-only")
     ap.add_argument("--batch", type=int, default=None, help="default: 16 with text, 64 audio-only")
     ap.add_argument("--lr-encoder", type=float, default=1.5e-5, help="RoBERTa learning rate")
@@ -198,7 +200,10 @@ def main() -> None:
     batch_size = args.batch or (16 if uses_text else 64)
 
     tok = AutoTokenizer.from_pretrained(text_name) if uses_text else None
-    data = {s: load_split(root, s, args, tok) for s in ("train", "dev", "test")}
+    tables = {s: load_manifest(root, s) for s in ("train", "dev", "test")}
+    if uses_text and args.text_source == "whisper":
+        tables = {s: with_whisper_text(df, root, s) for s, df in tables.items()}
+    data = {s: load_split(root, s, args, tok, df=df) for s, df in tables.items()}
     y = {s: df.label.to_numpy() for s, (df, _) in data.items()}
     collate = make_collate(tok.pad_token_id if tok else 0)
     train_loader = DataLoader(data["train"][1], batch_size=batch_size, shuffle=True, collate_fn=collate)
@@ -219,6 +224,7 @@ def main() -> None:
     out_dir = ROOT / "checkpoints" / args.name
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"{args.name}: mode={args.mode} context={args.context if uses_text else '-'} "
+          f"text={args.text_source if uses_text else '-'} "
           f"train={len(data['train'][1])} epochs={epochs} batch={batch_size} amp={amp}", flush=True)
     torch.cuda.reset_peak_memory_stats()
     history, best_f1, best_epoch = [], -1.0, 0
@@ -244,6 +250,7 @@ def main() -> None:
         "name": args.name,
         "mode": args.mode,
         "context": args.context if uses_text else None,
+        "text_source": args.text_source if uses_text else None,
         "hyperparams": {"epochs": epochs, "batch": batch_size, "lr_encoder": args.lr_encoder,
                         "lr_head": args.lr_head, "class_weight_power": args.class_weight_power,
                         "aux_weight": args.aux_weight, "modality_dropout": args.modality_dropout,

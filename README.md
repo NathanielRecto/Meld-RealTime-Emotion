@@ -15,6 +15,25 @@ consumer GPU, within a 6B total-parameter budget.
 > alone. Everything runs on a 6 GB GTX 1660 SUPER within 2.00B parameters. See [docs/DESIGN.md](docs/DESIGN.md) for the
 > decisions, the definition of "real-time", and the measurements.
 
+## Run the demo
+
+Needs a trained fusion model (`checkpoints/fusion_ctx3/`, see the next section) and the
+setup steps above.
+
+```powershell
+python scripts/serve.py      # then open http://127.0.0.1:8000
+```
+
+Click **Start microphone** and talk, or replay MELD lines (e.g. test dialogue 240, lines 8–10).
+Each turn gets a voice-only emotion tag about 50 ms after you stop talking, then the final tag
+from words + voice + context, then Pip's reply, streamed word by word.
+
+To follow one input through every stage in the terminal, with timings:
+
+```powershell
+python scripts/trace.py --clip test/dia240_utt10 --context 2
+```
+
 ## Training the emotion models
 
 After the data steps below:
@@ -101,6 +120,9 @@ scripts/extract_wavlm.py  Phase 2: precompute frozen WavLM features
 scripts/train_emotion.py  Phase 2: train and score text / audio / fusion models
 scripts/transcribe_meld.py  Whisper transcripts with the live settings, plus ASR time and errors
 scripts/evaluate.py       re-score trained models on Whisper transcripts
-src/meldrt/            shared code: data loading and input formatting, the emotion model
+scripts/trace.py       Phase 3: one input through every stage, with timings
+scripts/serve.py       Phase 3: the local web demo (web/index.html)
+src/meldrt/            shared code: data, emotion model, and the live pipeline
+                       (turns, emotion, cues, conversation, reply, pipeline, server)
 tests/assets/          a tiny synthetic speech clip used by the tests
 ```

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pip emotion demo</title>
+<style>
+  :root {
+    --bg: #f6f6f3; --surface: #ffffff; --ink: #1d1d1b; --ink-2: #55554f; --muted: #8a8a83;
+    --line: #e3e2dc; --accent: #2a63c9; --accent-soft: #c7d6f2; --track: #efeee9; --warn: #a64b1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --surface: #1e1e1c; --ink: #ecebe5; --ink-2: #b4b3ac; --muted: #84837c;
+      --line: #32322e; --accent: #7ea6ee; --accent-soft: #34476b; --track: #2a2a27; --warn: #e3905f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header, main { max-width: 1120px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .controls label { color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
+  .controls input { width: 64px; }
+  input, select, button { font: inherit; color: var(--ink); background: var(--surface);
+                          border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+  .pill { margin-left: auto; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+  main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } .pill { margin-left: 0; } }
+  .panel-title { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .card-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+  .voice { color: var(--ink-2); font-size: 14px; margin-top: 6px; }
+  .voice.superseded { color: var(--muted); }
+  .transcript { font-size: 17px; margin: 8px 0; }
+  .label { font-size: 22px; font-weight: 600; }
+  .label small { font-size: 14px; font-weight: 400; color: var(--ink-2); }
+  .bars { margin: 8px 0; display: grid; gap: 4px; }
+  .bar-row { display: grid; grid-template-columns: 70px 1fr 40px; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-2); }
+  .bar-track { height: 8px; background: var(--track); border-radius: 4px; }
+  .bar { display: block; height: 8px; background: var(--accent-soft); border-radius: 4px; }
+  .bar-row.top { color: var(--ink); font-weight: 600; }
+  .bar-row.top .bar { background: var(--accent); }
+  .bar-val { text-align: right; font-variant-numeric: tabular-nums; }
+  .meta { font-size: 13px; color: var(--ink-2); margin: 4px 0; }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .disagree { color: var(--warn); }
+  .reply { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 8px 8px 0; }
+  .reply b { color: var(--accent); }
+  .latency { font-size: 12px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+  details { margin-top: 8px; font-size: 12px; }
+  summary { cursor: pointer; color: var(--muted); }
+  pre { overflow-x: auto; background: var(--bg); padding: 8px; border-radius: 6px; }
+  .script li { margin-bottom: 8px; color: var(--ink-2); }
+  .script b { color: var(--ink); }
+  .empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pip &middot; real-time emotion demo</h1>
+  <p class="sub">Speak, or replay MELD lines. Each turn gets a fast voice-only tag, then a final tag from words + voice + context, then a streamed reply.</p>
+  <div class="controls">
+    <button id="mic" class="primary">Start microphone</button>
+    <button id="stop" disabled>Stop</button>
+    <span class="sep"></span>
+    <label>Replay MELD <select id="split"><option>test</option><option>dev</option></select></label>
+    <label>dialogue <input id="dia" type="number" min="0" value="240"></label>
+    <label>lines <input id="first" type="number" min="0" value="8"> to <input id="last" type="number" min="0" value="10"></label>
+    <button id="replay">Replay</button>
+    <span id="status" class="pill">connecting&hellip;</span>
+  </div>
+</header>
+<main>
+  <section>
+    <p class="panel-title">Turns (newest first)</p>
+    <div id="feed"><p class="empty">Nothing yet.</p></div>
+  </section>
+  <aside>
+    <p class="panel-title">MELD script (replays only)</p>
+    <ol id="script" class="script"><li class="empty">Start a replay to see the original lines and their labels.</li></ol>
+  </aside>
+</main>
+
+<template id="card-template">
+  <div class="card">
+    <div class="card-head"><span class="turn-no"></span><span class="secs"></span></div>
+    <div class="voice"></div>
+    <div class="final" hidden>
+      <div class="transcript"></div>
+      <div class="label"></div>
+      <div class="bars"></div>
+      <div class="meta modal"></div>
+      <div class="meta cues"></div>
+      <div class="meta mood"></div>
+    </div>
+    <div class="reply" hidden><b>Pip:</b> <span class="reply-text"></span></div>
+    <div class="latency"></div>
+    <details hidden><summary>State JSON (output 1)</summary><pre class="json"></pre></details>
+  </div>
+</template>
+
+<script>
+const EMOTIONS = ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"];
+const $ = (id) => document.getElementById(id);
+const feed = $("feed"), cards = {};
+let ws;
+
+function setStatus(text) { $("status").textContent = text; }
+function running(on) { $("stop").disabled = !on; }
+function pct(p) { return Math.round(p * 100) + "%"; }
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => setStatus("ready");
+  ws.onclose = () => { setStatus("disconnected - retrying"); setTimeout(connect, 2000); };
+  ws.onmessage = (e) => handle(JSON.parse(e.data));
+}
+function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+
+$("mic").onclick = () => send({ cmd: "mic" });
+$("stop").onclick = () => send({ cmd: "stop" });
+$("replay").onclick = () => send({ cmd: "replay", split: $("split").value, dialogue: $("dia").value,
+                                    first: $("first").value, last: $("last").value });
+
+function card(turn) {
+  if (!cards[turn]) {
+    if (feed.querySelector(".empty")) feed.innerHTML = "";
+    const el = $("card-template").content.firstElementChild.cloneNode(true);
+    el.querySelector(".turn-no").textContent = `Turn ${turn}`;
+    feed.prepend(el);
+    cards[turn] = el;
+  }
+  return cards[turn];
+}
+
+function bars(probs) {
+  const top = EMOTIONS.reduce((a, b) => (probs[b] > probs[a] ? b : a));
+  return EMOTIONS.map((e) => `
+    <div class="bar-row${e === top ? " top" : ""}" title="${e}: ${(probs[e] * 100).toFixed(1)}%">
+      <span>${e}</span><span class="bar-track"><span class="bar" style="width:${probs[e] * 100}%"></span></span>
+      <span class="bar-val">${pct(probs[e])}</span></div>`).join("");
+}
+
+function describeCues(c) {
+  const parts = [`loudness ${c.loudness_db} dB`];
+  if (c.pitch_hz) parts.push(`pitch ${Math.round(c.pitch_hz)} Hz`);
+  if (c.words_per_second) parts.push(`${c.words_per_second} words/s`);
+  const vs = Object.values(c.vs_earlier || {}).filter((v) => v !== "same");
+  return parts.join(" · ") + (vs.length ? ` · vs earlier: ${vs.join(", ")}` : "");
+}
+
+function voiceState(ev) {
+  const el = card(ev.turn);
+  el.querySelector(".secs").textContent = `${ev.speech_seconds} s of speech`;
+  el.querySelector(".voice").textContent =
+    `Voice only, +${Math.round(ev.t_ms)} ms: ${ev.emotion.label} ${pct(ev.emotion.confidence)} (provisional)`;
+}
+
+function finalState(ev) {
+  const el = card(ev.turn);
+  el.querySelector(".voice").classList.add("superseded");
+  el.querySelector(".final").hidden = false;
+  el.querySelector(".transcript").textContent = `“${ev.transcript}”`;
+  el.querySelector(".label").innerHTML =
+    `${ev.emotion.label} <small>${pct(ev.emotion.confidence)} · +${Math.round(ev.t_ms)} ms · ${ev.sentiment}</small>`;
+  el.querySelector(".bars").innerHTML = bars(ev.emotion.probs);
+  const w = ev.by_modality.words, v = ev.by_modality.voice;
+  el.querySelector(".modal").innerHTML =
+    `Words alone: <b>${w.label}</b> ${pct(w.confidence)} · Voice alone: <b>${v.label}</b> ${pct(v.confidence)}` +
+    (ev.modalities_agree ? "" : ` · <span class="disagree">words and voice disagree</span>`);
+  el.querySelector(".cues").textContent = describeCues(ev.cues);
+  el.querySelector(".mood").textContent = `Mood over the conversation: ${ev.mood_trend}`;
+  el.querySelector(".json").textContent = JSON.stringify(ev, null, 2);
+  el.querySelector("details").hidden = false;
+}
+
+function handle(ev) {
+  switch (ev.type) {
+    case "session_start":
+      feed.innerHTML = '<p class="empty">Listening&hellip;</p>';
+      for (const k in cards) delete cards[k];
+      $("script").innerHTML = (ev.lines || []).map((l) =>
+        `<li><b>${l.speaker}</b> [${l.emotion}]: ${l.text.replace(/</g, "&lt;")}</li>`).join("") ||
+        '<li class="empty">Live microphone: no script.</li>';
+      setStatus(`listening: ${ev.source}`); running(true); break;
+    case "session_end": setStatus("ready"); running(false); break;
+    case "speech_start": setStatus("hearing speech"); break;
+    case "turn_end": setStatus("thinking"); break;
+    case "state": ev.stage === "voice" ? voiceState(ev) : finalState(ev); break;
+    case "reply_token": {
+      const el = card(ev.turn);
+      el.querySelector(".reply").hidden = false;
+      el.querySelector(".reply-text").textContent += ev.text; break;
+    }
+    case "reply_done": {
+      const l = ev.latency_ms;
+      card(ev.turn).querySelector(".latency").textContent =
+        `From end of turn: voice tag ${l.voice_tag} ms · words ${l.asr_done} ms · final tag ${l.final_tag} ms` +
+        ` · first reply word ${l.first_token} ms · reply done ${l.reply_done} ms`;
+      setStatus("listening"); break;
+    }
+    case "ignored": card(ev.turn).querySelector(".latency").textContent = `Ignored: ${ev.reason}`; break;
+    case "error": setStatus(`error: ${ev.message}`); break;
+  }
+}
+
+connect();
+</script>
+</body>
+</html>

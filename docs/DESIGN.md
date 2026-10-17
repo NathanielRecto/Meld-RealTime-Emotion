@@ -33,9 +33,15 @@ in a reasonably quiet room. The robot replies after the person finishes and is n
 
 | Output (measured from end-of-turn detection) | Target, p95 |
 |---|---|
-| Emotion tag / state JSON | ≤ 500 ms |
+| Voice tag: state JSON from the voice alone (stage 1) | ≤ 500 ms |
+| Final tag: state JSON from words + voice + context (stage 2) | ≤ 1.0 s |
 | First word of the reply | ≤ 1.5 s |
 | Full reply (≤ 30 words) | ≤ 3.0 s |
+
+*Revised 2026-10-17.* The first version had a single 500 ms target for the emotion tag. Measuring
+Whisper on real clips (section 9: p95 694 ms for speech-to-text alone) showed that a tag which
+needs the words can't meet it on this GPU. So the tag now comes in two stages: a voice-only tag
+inside the original 500 ms, then the full tag once the words are in (section 10).
 
 - **End of turn** means 400 ms of silence according to the voice detector (tunable). From the
   person's side, the wait is this silence plus the budget above. A shorter threshold feels snappier
@@ -343,7 +349,98 @@ What this means:
    using some combination of Whisper base (293 ms in section 6), transcribing while the person
    is still talking, or a speech-to-text model whose cost scales with clip length.
 
-## 10. Decision log
+**Retraining on Whisper text** (2026-10-17). To test point 4, the training set was transcribed
+too (`scripts/transcribe_meld.py train`: 9,988 clips, word error rate 31.7%, "!" on 10.1% of
+lines vs MELD's 30.3%). The text and fusion models were then retrained with
+`--text-source whisper`, so they were trained, picked on dev and scored on Whisper text throughout.
+
+| Model, scored on Whisper text | Trained on | Dev W-F1 | Test W-F1 | Test macro F1 |
+|---|---|---|---|---|
+| `text_ctx3` | MELD text | 0.528 | 0.529 | 0.373 |
+| `text_ctx3_whisper` | Whisper text | 0.516 | 0.523 | 0.357 |
+| `fusion_ctx3` | MELD text | 0.519 | **0.536** | **0.389** |
+| `fusion_ctx3_whisper` | Whisper text | 0.525 | 0.513 | 0.369 |
+
+**It didn't help.** Matching the training text to the live text made the text model slightly
+worse on both dev and test. The fusion model gained 0.6 points on dev but lost 2.3 on test, and
+both lost macro F1. So point 4's guess was wrong, or at least this isn't the way to fix it. A
+likely reason: the labels were made from the clean lines and the video, so pairing them with
+transcripts that get about a third of the words wrong mostly adds noise. The model trained on clean
+text learned what the words mean emotionally and still uses that whenever Whisper gets them right.
+The retrained fusion model did read anger better (0.43 vs 0.35) but lost on neutral and fear.
+
+**Decision: the live system keeps `fusion_ctx3`.** The only dev gain (+0.6 for fusion) is inside
+single-seed noise, so there's no evidence for switching, and test points the same way.
+`fusion_ctx3` stays the best of the four on realistic input, though by a margin that is itself
+within noise.
+
+## 10. Phase 3: the real-time pipeline
+
+**How one turn flows** (`src/meldrt/pipeline.py`):
+
+1. **Audio in.** Either the microphone (`sources.microphone`: 16 kHz, or 48 kHz downsampled) or a
+   MELD dialogue replayed at real speed with 1 s gaps (`sources.replay`). Both deliver 32 ms chunks.
+2. **Turn detection** (`turns.TurnDetector`). Silero VAD runs on every chunk. A turn ends after
+   400 ms of silence, keeps 100 ms of padding on each side, and is cut at 15 s. Listening never
+   pauses: new turns queue up while an earlier one is still being processed.
+3. **Stage 1, voice tag.** WavLM features (the same function as training, `features.py`) go
+   through the fusion model's audio head. A `state` event with `stage: "voice"` goes out.
+4. **Speech-to-text:** Whisper small, int8.
+5. **Stage 2, final tag.** RoBERTa reads the transcript plus the previous 3 turns (both sides of
+   the conversation), together with the same WavLM features. One pass gives fused, words-only and
+   voice-only probabilities, and a `state` event with `stage: "final"` goes out. This is output 1.
+6. **Reply (output 2).** The state is turned into plain-language notes, and Qwen2.5-1.5B
+   (llama.cpp) streams a reply of at most 30 words, token by token.
+
+**Output 1, trimmed from `reports/trace_test_dia240_utt10.json`:**
+
+```json
+{"stage": "final", "turn": 4, "transcript": "Is this a real person?",
+ "emotion": {"label": "surprise", "confidence": 0.885, "probs": {"surprise": 0.885, "neutral": 0.061, "...": "..."}},
+ "sentiment": "neutral",
+ "by_modality": {"words": {"label": "surprise", "confidence": 0.903},
+                 "voice": {"label": "anger", "confidence": 0.4}},
+ "modalities_agree": false,
+ "cues": {"loudness_db": -29.0, "pitch_hz": 275.9, "words_per_second": 2.78,
+          "vs_earlier": {"pitch": "higher", "expressiveness": "flatter", "pace": "slower"}},
+ "mood_trend": "steady",
+ "latency_ms": {"voice_tag": 45.0, "asr_done": 736.0, "final_tag": 787.3}}
+```
+
+**Design choices:**
+- **Two-stage tag** (section 2). The voice tag lets the robot react within about 50 ms; the final
+  tag follows once the words are known.
+- **The reply is grounded through plain-language notes, not numbers** ("They clearly sound
+  surprised. Compared with earlier, their voice is higher, slower."). A words/voice mismatch is
+  only mentioned when the fused model **sided with the voice**, which is the sarcasm case. In the
+  first trace a weak voice-only guess (anger 0.40) made the reply hedge ("I'm not sure if you're
+  joking"), even though the fused model was confident in surprise. The rule changed after that.
+- **Voice cues are compared with the same person's earlier turns,** not with fixed thresholds, so
+  they work for any voice without calibration.
+- **The emotion model's context includes the robot's own replies,** so it sees a two-party
+  conversation, like the multi-party MELD dialogues it learned from.
+- **One lock around the models:** there is one GPU, and llama.cpp isn't thread-safe.
+
+**Demo tools:**
+- `python scripts/trace.py --clip test/dia240_utt10 --context 2` follows one input through every
+  stage with timings: the brief's "one input to both outputs" demonstration. It saves
+  `reports/trace_<clip>.json`.
+- `python scripts/serve.py`, then open http://127.0.0.1:8000. The page takes a microphone or a
+  MELD replay and shows a live card per turn: provisional voice tag, final tag with probability
+  bars, words vs voice, cues, mood, the streamed reply, latency, and the raw state JSON.
+
+**First measurements** (the trace above, while a background Whisper job shared the GPU, so these
+are pessimistic): voice tag 40–63 ms, final tag 0.79–1.38 s, first reply word 1.09–1.64 s, reply
+done 1.5–2.3 s. Clean numbers on an idle GPU come in Phase 4.
+
+**Known issues so far:**
+- The 400 ms silence threshold split "No. No, I'm Joey…" at its first pause. The 0.39 s "No."
+  got no transcript and was skipped.
+- There's no speaker identification, so a replayed multi-person MELD scene is treated as one
+  person talking to the robot.
+- The microphone path is implemented but hasn't been tested with live speech yet.
+
+## 11. Decision log
 
 | Date | Decision | Why |
 |---|---|---|
@@ -363,8 +460,13 @@ What this means:
 | 2026-10-16 | Speakers renamed A/B/C within each context window | Avoids memorising *Friends* characters; matches a two-party live conversation |
 | 2026-10-16 | Train in fp32 | fp16 mixed precision was 4x slower per step on the GTX 1660 SUPER |
 | 2026-10-16 | Audio capped at the first 15 s | Misaligned multi-minute clips; 99.7% of clips are unaffected |
+| 2026-10-17 | Emotion tag in two stages: voice-only, then words + voice + context | Whisper's p95 (694 ms) alone breaks a 500 ms tag; the voice tag lands in about 50 ms |
+| 2026-10-17 | Reply notes mention a words/voice mismatch only when the fused model sided with the voice | A weak voice-only guess made replies hedge when the fused model was sure |
+| 2026-10-17 | Voice cues relative to the same person's earlier turns | Works for any voice without calibrating thresholds |
+| 2026-10-17 | One shared WavLM feature function for training and live use | Live features can't drift from the training ones (checked: within float16 rounding) |
+| 2026-10-17 | Keep `fusion_ctx3` (trained on MELD text) live; don't adopt the Whisper-text retrains | No dev gain beyond noise; test 0.513 vs 0.536 for fusion (section 9) |
 
-## 11. External components
+## 12. External components
 
 Licences checked 2026-10-16 from each model's Hugging Face card or source repository.
 "Changed" and "checked" fill in as each component is trained or evaluated.
@@ -379,6 +481,6 @@ Licences checked 2026-10-16 from each model's Hugging Face card or source reposi
 | Qwen2.5-1.5B-Instruct (Q4_K_M GGUF) | [Qwen/Qwen2.5-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) | Apache-2.0 | prompt only | smoke test |
 | llama.cpp runtime | [abetlen/llama-cpp-python](https://github.com/abetlen/llama-cpp-python) 0.3.4 | MIT | no | smoke test |
 
-## 12. Limitations and what was left out
+## 13. Limitations and what was left out
 
 *Filled in at the end.*

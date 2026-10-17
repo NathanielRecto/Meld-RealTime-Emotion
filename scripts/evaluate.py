@@ -16,7 +16,6 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 
-import pandas as pd
 import torch
 import yaml
 from torch.utils.data import DataLoader
@@ -24,19 +23,9 @@ from transformers import AutoTokenizer
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from meldrt.data import load_manifest  # noqa: E402
+from meldrt.data import load_manifest, with_whisper_text  # noqa: E402
 from meldrt.model import EmotionModel  # noqa: E402
-from prepare_meld import previous_turns  # noqa: E402  (same context rule as the MELD tables)
 from train_emotion import load_split, make_collate, predict, scores  # noqa: E402
-
-
-def with_whisper_text(df: pd.DataFrame, asr: pd.Series) -> pd.DataFrame:
-    """Swap in Whisper's text for every utterance and rebuild each context window from it:
-    live, the earlier turns would also come from speech-to-text."""
-    df = df.copy()
-    df["text"] = df.clip_id.map(asr).fillna("")
-    df["prev_turns"] = [json.loads(p) for p in previous_turns(df)]
-    return df
 
 
 def main() -> None:
@@ -49,10 +38,7 @@ def main() -> None:
     tok = AutoTokenizer.from_pretrained(text_name)
     collate = make_collate(tok.pad_token_id)
 
-    tables = {}
-    for split in ("dev", "test"):
-        asr = pd.read_csv(root / "asr" / f"{split}.csv", keep_default_na=False, na_values=[""])
-        tables[split] = with_whisper_text(load_manifest(root, split), asr.set_index("clip_id").asr_text)
+    tables = {split: with_whisper_text(load_manifest(root, split), root, split) for split in ("dev", "test")}
     short = (tables["test"].n_words <= 3).to_numpy()  # same slice as Phase 2: by MELD's word count
 
     rows = []
