@@ -1,0 +1,103 @@
+{
+  "timestamp": "2026-10-16T17:49:25",
+  "hardware": {
+    "gpu": "NVIDIA GeForce GTX 1660 SUPER",
+    "gpu_vram_mb": 6144,
+    "gpu_compute_capability": "7.5",
+    "cpu": "AMD Ryzen 3 3100 4-Core Processor",
+    "cpu_threads": 8,
+    "ram_gb": 15.9,
+    "os": "Windows-10-10.0.19045-SP0"
+  },
+  "versions": {
+    "python": "3.10.11",
+    "cuda": "12.6",
+    "cudnn": 91002,
+    "torch": "2.14.1+cu126",
+    "transformers": "5.20.1",
+    "faster-whisper": "1.2.1",
+    "ctranslate2": "4.8.3",
+    "silero-vad": "6.2.3",
+    "llama-cpp-python": "0.3.4"
+  },
+  "sample_audio": "sample_en.wav",
+  "components": [
+    {
+      "role": "VAD",
+      "model": "silero-vad",
+      "device": "cpu",
+      "params": 462594,
+      "load_s": 0.15,
+      "warm_ms": 0.6,
+      "per": "32 ms chunk",
+      "check": "3 speech segment(s) found in sample",
+      "gpu_used_mb_after": 1225
+    },
+    {
+      "role": "ASR",
+      "model": "faster-whisper small (int8_float16)",
+      "device": "cuda",
+      "params": 241734912,
+      "load_s": 1.39,
+      "warm_ms": 484.9,
+      "per": "5.4 s utterance",
+      "check": "transcript: \"Oh great, that's just perfect. Now we're going to be late again.\"",
+      "gpu_used_mb_after": 1548
+    },
+    {
+      "role": "Text encoder",
+      "model": "FacebookAI/roberta-base",
+      "device": "cuda float16",
+      "params": 124645632,
+      "load_s": 1.34,
+      "warm_ms": 25.2,
+      "per": "29 tokens",
+      "check": "finite output",
+      "gpu_used_mb_after": 1820
+    },
+    {
+      "role": "Audio encoder",
+      "model": "microsoft/wavlm-base-plus",
+      "device": "cuda float32",
+      "params": 94381936,
+      "load_s": 0.86,
+      "warm_ms": 43.5,
+      "per": "5.4 s audio",
+      "check": "finite output",
+      "gpu_used_mb_after": 2296
+    },
+    {
+      "role": "Reply LLM",
+      "model": "qwen2.5-1.5b-instruct-q4_k_m.gguf (llama.cpp)",
+      "device": "cuda",
+      "params": 1543714304,
+      "load_s": 0.95,
+      "warm_ms": 241.7,
+      "per": "13-token reply",
+      "first_token_ms": 99.9,
+      "tokens_per_s": 53.8,
+      "check": "reply looks normal",
+      "reply": "You're not angry, you're just frustrated with the timing.",
+      "gpu_used_mb_after": 3598
+    }
+  ],
+  "total_params": 2004939378,
+  "param_budget": 6000000000,
+  "within_budget": true,
+  "gpu_memory_mb": {
+    "baseline_before_models": 1157,
+    "with_all_models": 3598,
+    "added_by_models": 2440,
+    "torch_peak_allocated": 683
+  },
+  "process_ram_mb": 2827,
+  "ffmpeg": {
+    "found": true,
+    "version": "ffmpeg version 7.1-essentials_build-www.gyan.dev Copyright (c) 2000-2024 the FFmpeg developers"
+  },
+  "microphone": {
+    "found": true,
+    "name": "Microphone (Blue Snowball)",
+    "default_samplerate": 44100.0
+  }
+}

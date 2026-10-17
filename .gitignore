@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Data and model weights never go in the repo (MELD clips are copyrighted TV footage)
+data/
+checkpoints/
+*.mp4
+*.wav
+*.tar.gz
+*.pt
+*.bin
+*.safetensors
+*.gguf
+!tests/assets/*.wav
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db

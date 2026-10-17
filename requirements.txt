@@ -1,0 +1,22 @@
+# Install the GPU build of PyTorch first (see README):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126
+transformers>=4.56
+faster-whisper>=1.1
+silero-vad>=5.1
+soundfile
+sounddevice
+numpy
+pandas
+scikit-learn
+pyyaml
+tqdm
+psutil
+nvidia-ml-py
+imageio-ffmpeg
+fastapi
+uvicorn[standard]
+
+# llama.cpp with CUDA, prebuilt for Windows (wheels exist for Python 3.10-3.12)
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124
+--only-binary llama-cpp-python
+llama-cpp-python==0.3.4

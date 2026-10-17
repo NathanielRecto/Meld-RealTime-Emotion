@@ -1,0 +1,34 @@
+# Paths and model choices for the whole pipeline. Swap a model here, not in code.
+paths:
+  meld_root: G:/datasets/MELD          # raw MELD download + extracted clips (outside the repo)
+  reports_dir: reports
+
+models:
+  vad: silero-vad                      # pip package, runs on CPU
+  asr:
+    name: small                        # faster-whisper size: tiny / base / small
+    hf_config: openai/whisper-small    # same architecture, used only to count parameters
+    device: cuda
+    compute_type: int8_float16         # 2.3x faster than float16 on this card, same transcript
+    without_timestamps: true
+  text_encoder:
+    name: FacebookAI/roberta-base
+    dtype: float16
+  audio_encoder:
+    name: microsoft/wavlm-base-plus
+    dtype: float32                     # float16 gives NaN on the GTX 1660 SUPER (and is slower)
+  llm:                                 # llama.cpp: ~7x faster than transformers here
+    gguf_repo: Qwen/Qwen2.5-1.5B-Instruct-GGUF
+    gguf_file: qwen2.5-1.5b-instruct-q4_k_m.gguf
+    hf_config: Qwen/Qwen2.5-1.5B-Instruct  # same weights unquantized, used only to count parameters
+    n_ctx: 2048
+
+realtime:                              # targets defined in docs/DESIGN.md section 2
+  sample_rate: 16000
+  chunk_samples: 512                   # 32 ms streaming unit
+  end_of_turn_silence_ms: 400
+  budget_ms:                           # p95, measured from end-of-turn detection
+    emotion_tag: 500
+    first_token: 1500
+    full_reply: 3000
+  max_reply_words: 30
