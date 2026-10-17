@@ -9,9 +9,10 @@ out how they feel from **what they say and how they say it**, and returns:
 Built on the [MELD](https://affective-meld.github.io/) dataset. Everything runs locally on one
 consumer GPU, within a 6B total-parameter budget.
 
-> **Status:** Phase 0 done. All models fit and run together on a 6 GB GTX 1660 SUPER (2.00B
-> parameters, 3.6 GB of GPU memory). See [docs/DESIGN.md](docs/DESIGN.md) for the decisions, the
-> definition of "real-time", and the measurements.
+> **Status:** Phase 1 done. All models fit and run together on a 6 GB GTX 1660 SUPER (2.00B
+> parameters, 3.6 GB of GPU memory), and MELD is prepared as clean train/dev/test tables with
+> 16 kHz audio. See [docs/DESIGN.md](docs/DESIGN.md) for the decisions, the definition of
+> "real-time", and the measurements.
 
 ## Setup (Windows, NVIDIA GPU)
 
@@ -43,8 +44,26 @@ consumer GPU, within a 6B total-parameter budget.
 MELD (about 10.9 GB) is kept **outside** the repo. The default location is `G:/datasets/MELD`;
 change `paths.meld_root` in `configs/default.yaml` for your machine.
 
-Download: <https://web.eecs.umich.edu/~mihalcea/downloads/MELD.Raw.tar.gz>
-(a download-and-prepare script comes in Phase 1).
+1. Download `MELD.Raw.tar.gz` into that folder:
+   <https://web.eecs.umich.edu/~mihalcea/downloads/MELD.Raw.tar.gz>
+2. Prepare it. This extracts the archives, converts every clip to 16 kHz mono WAV, and builds one
+   table per split:
+   ```powershell
+   python scripts/prepare_meld.py
+   ```
+   Each step can also run on its own (`extract`, `audio`, `manifest`, `stats`), and every step skips
+   work that is already done, so an interrupted run can simply be restarted.
+
+What it produces, next to the download:
+
+```
+MELD.Raw/              extracted label CSVs and video clips
+audio16k/<split>/      dia<D>_utt<U>.wav, 16 kHz mono
+manifests/<split>.csv  one row per utterance: speaker, text, emotion, sentiment,
+                       previous 3 turns, WAV path, duration
+```
+
+Data statistics land in `reports/phase1_data.json`.
 
 ## Layout
 

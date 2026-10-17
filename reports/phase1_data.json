@@ -1,0 +1,136 @@
+{
+  "splits": {
+    "train": {
+      "utterances": 9989,
+      "dialogues": 1038,
+      "speakers": 260,
+      "emotion_counts": {
+        "anger": 1109,
+        "disgust": 271,
+        "fear": 268,
+        "joy": 1743,
+        "neutral": 4710,
+        "sadness": 683,
+        "surprise": 1205
+      },
+      "emotion_pct": {
+        "anger": 11.1,
+        "disgust": 2.7,
+        "fear": 2.7,
+        "joy": 17.4,
+        "neutral": 47.2,
+        "sadness": 6.8,
+        "surprise": 12.1
+      },
+      "sentiment_counts": {
+        "neutral": 4710,
+        "negative": 2945,
+        "positive": 2334
+      },
+      "audio_ok": 9988,
+      "audio_missing_or_broken": [
+        "dia125_utt3"
+      ],
+      "duration_s": {
+        "mean": 3.14,
+        "median": 2.48,
+        "p95": 7.94,
+        "max": 41.05
+      },
+      "clips_over_30s": 1,
+      "clips_off_subtitle_by_2s": 2,
+      "words_median": 6.0,
+      "pct_3_words_or_less": 28.0,
+      "unknown_emotion_labels": []
+    },
+    "dev": {
+      "utterances": 1109,
+      "dialogues": 114,
+      "speakers": 47,
+      "emotion_counts": {
+        "anger": 153,
+        "disgust": 22,
+        "fear": 40,
+        "joy": 163,
+        "neutral": 470,
+        "sadness": 111,
+        "surprise": 150
+      },
+      "emotion_pct": {
+        "anger": 13.8,
+        "disgust": 2.0,
+        "fear": 3.6,
+        "joy": 14.7,
+        "neutral": 42.4,
+        "sadness": 10.0,
+        "surprise": 13.5
+      },
+      "sentiment_counts": {
+        "neutral": 470,
+        "negative": 406,
+        "positive": 233
+      },
+      "audio_ok": 1108,
+      "audio_missing_or_broken": [
+        "dia110_utt7"
+      ],
+      "duration_s": {
+        "mean": 3.12,
+        "median": 2.44,
+        "p95": 7.61,
+        "max": 28.54
+      },
+      "clips_over_30s": 0,
+      "clips_off_subtitle_by_2s": 0,
+      "words_median": 6.0,
+      "pct_3_words_or_less": 28.3,
+      "unknown_emotion_labels": []
+    },
+    "test": {
+      "utterances": 2610,
+      "dialogues": 280,
+      "speakers": 100,
+      "emotion_counts": {
+        "anger": 345,
+        "disgust": 68,
+        "fear": 50,
+        "joy": 402,
+        "neutral": 1256,
+        "sadness": 208,
+        "surprise": 281
+      },
+      "emotion_pct": {
+        "anger": 13.2,
+        "disgust": 2.6,
+        "fear": 1.9,
+        "joy": 15.4,
+        "neutral": 48.1,
+        "sadness": 8.0,
+        "surprise": 10.8
+      },
+      "sentiment_counts": {
+        "neutral": 1256,
+        "negative": 833,
+        "positive": 521
+      },
+      "audio_ok": 2610,
+      "audio_missing_or_broken": [],
+      "duration_s": {
+        "mean": 3.4,
+        "median": 2.6,
+        "p95": 7.76,
+        "max": 304.96
+      },
+      "clips_over_30s": 2,
+      "clips_off_subtitle_by_2s": 42,
+      "words_median": 7.0,
+      "pct_3_words_or_less": 27.4,
+      "unknown_emotion_labels": []
+    }
+  },
+  "majority_baseline_test": {
+    "predict": "neutral",
+    "weighted_f1": 0.313,
+    "macro_f1": 0.093
+  }
+}

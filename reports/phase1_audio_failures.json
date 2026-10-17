@@ -1,0 +1,9 @@
+{
+  "train": {
+    "dia125_utt3": "Error opening input files: Invalid data found when processing input"
+  },
+  "dev": {
+    "dia110_utt7": "video file missing"
+  },
+  "test": {}
+}

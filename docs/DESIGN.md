@@ -149,7 +149,54 @@ parameter total is **2.00B**.
 with the timing.") argues with the person's feelings. Prompt design is Phase 3 work, and the
 reply check in Phase 4 will measure it.
 
-## 7. Decision log
+## 7. Phase 1: data preparation
+
+`scripts/prepare_meld.py` (extract → audio → manifest → stats), run 2026-10-16. Converting all
+clips took about 10 minutes with 8 parallel ffmpeg processes and produced 1.4 GB of WAVs. Full
+numbers: `reports/phase1_data.json`.
+
+| | train | dev | test |
+|---|---|---|---|
+| Utterances | 9,989 | 1,109 | 2,610 |
+| Dialogues | 1,038 | 114 | 280 |
+| With usable audio | 9,988 | 1,108 | 2,610 |
+| Median / p95 clip length | 2.5 / 7.9 s | 2.4 / 7.6 s | 2.6 / 7.8 s |
+| Utterances of 3 words or fewer | 28.0% | 28.3% | 27.4% |
+
+Emotion balance (% of utterances):
+
+| | anger | disgust | fear | joy | neutral | sadness | surprise |
+|---|---|---|---|---|---|---|---|
+| train | 11.1 | 2.7 | 2.7 | 17.4 | 47.2 | 6.8 | 12.1 |
+| dev | 13.8 | 2.0 | 3.6 | 14.7 | 42.4 | 10.0 | 13.5 |
+| test | 13.2 | 2.6 | 1.9 | 15.4 | 48.1 | 8.0 | 10.8 |
+
+**Floor to beat:** always predicting "neutral" scores weighted F1 **0.313** and macro F1 **0.093**
+on test.
+
+**Data problems found, and how they are handled:**
+- **Two utterances have no usable audio:** `train/dia125_utt3` (corrupt video) and
+  `dev/dia110_utt7` (video missing from the archive). They stay in the tables with
+  `audio_ok = false`. Audio models skip them; text models can still use them.
+- **Garbled punctuation:** the transcripts store Windows-1252 punctuation as raw control
+  characters (`company\x92s`), about 3,900 times in train alone. They are mapped to plain ASCII,
+  matching Whisper's output style. The original is kept in `text_raw`.
+- **Some clips don't match their line because MELD's subtitle timestamps are wrong.** For
+  example, `test/dia38_utt4` runs 305 s for a 7-word line. 3 clips are longer than Whisper's 30 s
+  window, and 44 clips (42 of them in test) differ from their subtitle times by more than 2 s.
+  The official splits are kept unchanged so scores stay comparable with published work; Phase 2
+  caps how much audio each model sees.
+- **141 extra video clips have no label row** (4 in dev, 137 in test). They are ignored.
+
+**What this means for the plan:**
+- Clips are short (median 2.5 s), so the latency outlook in section 6, measured on a 5.4 s clip,
+  should improve on real data.
+- 28% of utterances are 3 words or fewer, where the words alone say little. Audio should help
+  most on that slice, so Phase 2 reports it separately.
+- Fear and disgust have under 300 training examples each, so class weighting matters and macro
+  F1 will stay low.
+
+## 8. Decision log
 
 | Date | Decision | Why |
 |---|---|---|
@@ -161,8 +208,12 @@ reply check in Phase 4 will measure it.
 | 2026-10-16 | Reply LLM through llama.cpp (`llama-cpp-python` 0.3.4, CUDA 12.4 wheel), Qwen2.5-1.5B Q4_K_M | ~7x faster, about 2 GB less VRAM, prebuilt for Windows |
 | 2026-10-16 | Whisper small with int8 weights | 2.3x faster than fp16 on this card with the same transcript; base is the fallback |
 | 2026-10-16 | WavLM in fp32 | fp16 gives NaN on the GTX 16-series, and fp32 is faster here anyway |
+| 2026-10-16 | Keep MELD's official splits unchanged, misaligned clips included | Scores stay comparable with published results |
+| 2026-10-16 | Normalise transcript punctuation to ASCII (`text`), keep the original (`text_raw`) | Training text should look like Whisper's live output |
+| 2026-10-16 | Context = the previous 3 utterances, speaker and words only, no earlier labels | Earlier emotions aren't known during a live conversation |
+| 2026-10-16 | Tar extraction in Python with a member filter (plain files only, inside the target folder) | Archives are untrusted input, and Python 3.10.11 lacks `tarfile`'s built-in filter |
 
-## 8. External components
+## 9. External components
 
 Licences checked 2026-10-16 from each model's Hugging Face card or source repository.
 "Changed" and "checked" fill in as each component is trained or evaluated.
@@ -177,6 +228,6 @@ Licences checked 2026-10-16 from each model's Hugging Face card or source reposi
 | Qwen2.5-1.5B-Instruct (Q4_K_M GGUF) | [Qwen/Qwen2.5-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) | Apache-2.0 | prompt only | smoke test |
 | llama.cpp runtime | [abetlen/llama-cpp-python](https://github.com/abetlen/llama-cpp-python) 0.3.4 | MIT | no | smoke test |
 
-## 9. Limitations and what was left out
+## 10. Limitations and what was left out
 
 *Filled in at the end.*
