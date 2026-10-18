@@ -51,6 +51,21 @@ and didn't work, and the limitations.
    ```
    Results are written to `reports/phase0_smoke.json`.
 
+## Quick start: run the demo without any training
+
+The trained emotion models are published with the GitHub release
+[`weights-v1`](https://github.com/NathanielRecto/Meld-RealTime-Emotion/releases/tag/weights-v1),
+so the live demo needs neither MELD nor CREMA-D. After the setup above:
+
+```powershell
+python scripts/download_weights.py   # 3 files, about 1.5 GB, each checked against its SHA-256
+python scripts/serve.py              # then open http://127.0.0.1:8000 and click Start microphone
+```
+
+To follow one recording of your own (16 kHz mono WAV) through every stage in the terminal:
+`python scripts/trace.py --wav your_clip.wav`. Replaying MELD lines in the web page, and everything
+under Data and Training below, does need the datasets.
+
 ## Data
 
 MELD (about 10.9 GB) is kept **outside** the repo. The default location is `G:/datasets/MELD`;
@@ -127,7 +142,7 @@ python scripts/evaluate_tone.py fusion_ctx3_crema_td25 fusion_ctx3_crema_td25_se
 
 ## Run the demo
 
-Needs the three trained fusion models above.
+Needs the three trained fusion models: download them (Quick start) or train them (above).
 
 ```powershell
 python scripts/serve.py      # then open http://127.0.0.1:8000
@@ -160,6 +175,7 @@ configs/default.yaml        model names, paths, real-time targets
 docs/DESIGN.md              decisions, assumptions, evidence
 reports/                    measured results (JSON) and the reply rating sheet
 scripts/smoke_test.py       Phase 0: do all models fit and run on the GPU together?
+scripts/download_weights.py  the trained emotion models from the GitHub release, checksum-verified
 scripts/prepare_meld.py     Phase 1: extract MELD, convert audio, build the tables
 scripts/prepare_crema.py    Phase 5: CREMA-D clips for voice training and the tone test
 scripts/extract_wavlm.py    Phase 2: precompute frozen WavLM features (MELD or CREMA-D)
