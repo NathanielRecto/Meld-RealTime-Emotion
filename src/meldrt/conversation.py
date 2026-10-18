@@ -45,9 +45,9 @@ class Conversation:
         return [dict(t) for t in self.turns[-n:]] if n else []
 
     def chat_history(self, n: int) -> list[dict]:
-        """Earlier turns as chat messages for the reply model."""
-        return [{"role": "user", "content": f'They said: "{t["text"]}"'} if t["speaker"] == self.user
-                else {"role": "assistant", "content": t["text"]} for t in self.turns[-n:]]
+        """Earlier turns as chat messages for the reply model: the person's words as they said them."""
+        return [{"role": "user" if t["speaker"] == self.user else "assistant", "content": t["text"]}
+                for t in self.turns[-n:]]
 
     def voice_state(self, turn: int, voice_probs: np.ndarray, cues: dict, seconds: float) -> dict:
         """Stage 1 state: from the voice alone, sent before the words are known."""

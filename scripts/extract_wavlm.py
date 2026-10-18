@@ -6,10 +6,12 @@ MELD clips run for minutes because their subtitle timestamps are wrong (docs/DES
 
 Usage:
     python scripts/extract_wavlm.py
-Writes <meld_root>/features/wavlm_<split>.npy (float16) and wavlm_<split>_ids.txt (row order).
+    python scripts/extract_wavlm.py --dataset crema   # CREMA-D clips, after scripts/prepare_crema.py
+Writes <root>/features/wavlm_<split>.npy (float16) and wavlm_<split>_ids.txt (row order).
 """
 from __future__ import annotations
 
+import argparse
 import sys
 import time
 from pathlib import Path
@@ -29,8 +31,11 @@ from meldrt.features import MAX_SECONDS, SR, wavlm_layer_means  # noqa: E402  (s
 
 @torch.inference_mode()
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--dataset", choices=["meld", "crema"], default="meld")
+    args = ap.parse_args()
     cfg = yaml.safe_load((ROOT / "configs" / "default.yaml").read_text(encoding="utf-8"))
-    root = Path(cfg["paths"]["meld_root"])
+    root = Path(cfg["paths"][f"{args.dataset}_root"])
     c = cfg["models"]["audio_encoder"]
     extractor = AutoFeatureExtractor.from_pretrained(c["name"])
     model = AutoModel.from_pretrained(c["name"], dtype=getattr(torch, c["dtype"])).to("cuda").eval()

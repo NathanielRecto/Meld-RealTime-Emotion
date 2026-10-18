@@ -57,7 +57,7 @@ class EmotionModel(nn.Module):
         """Logits from the audio branch alone: the fast "voice" tag, available before any words."""
         return self.audio_head(self.audio_proj(self.layer_pool(audio)))
 
-    def forward(self, input_ids=None, attention_mask=None, audio=None, audio_present=None) -> dict:
+    def forward(self, input_ids=None, attention_mask=None, audio=None, audio_present=None, text_present=None) -> dict:
         out = {}
         if self.use_text:
             # First token (<s>) summarises the sequence, like BERT's [CLS].
@@ -69,5 +69,10 @@ class EmotionModel(nn.Module):
             if audio_present is not None:  # broken clip, or audio hidden on purpose during training
                 h_audio = h_audio * audio_present[:, None].to(h_audio.dtype)
             out["audio"] = self.audio_head(h_audio)
-        out["fused"] = self.fusion_head(torch.cat([h_text, h_audio], dim=-1)) if self.mode == "fusion" else out[self.mode]
+        if self.mode == "fusion":
+            if text_present is not None:  # words hidden from the fused head on purpose during training
+                h_text = h_text * text_present[:, None].to(h_text.dtype)
+            out["fused"] = self.fusion_head(torch.cat([h_text, h_audio], dim=-1))
+        else:
+            out["fused"] = out[self.mode]
         return out
