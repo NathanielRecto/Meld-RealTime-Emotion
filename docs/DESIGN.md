@@ -745,6 +745,46 @@ notes their live states produced, 2 seeds each (18 replies per condition):
   the time ("Well, it's already late. Time for some snacks and a movie!"). That still needs a
   stronger reply model.
 
+### A ~3B reply model (2026-10-17)
+
+Can a bigger reply model act on the tone, and does it fit? Full numbers and every reply are in
+`reports/phase5_reply_model_3b.json`. The setup:
+- Prompt v2 and the cleaned history (commit `53ff156`), 3 seeds.
+- Two test sets: the 9 live lines as one conversation, and 4 flat sentences in an angry voice (the
+  live turn 14 plus 3 CREMA-D lines).
+- Replies scored with model names hidden and the order shuffled. The Q3 row was scored afterwards,
+  not blind.
+
+| Reply model (Q4_K_M unless noted) | Licence | Total params | Fits the 6 GB card? | Angry voice acknowledged (of 15) | Teasing played along (of 9) | Spoke as if it were the person (of 39) |
+|---|---|---|---|---|---|---|
+| **Qwen2.5-1.5B (live)** | Apache-2.0 | 2.25B | yes, 5.6 GB peak | 2 | 1 | 11 |
+| Llama-3.2-3B | Llama 3.2 Community | 3.92B | **no:** spills into system RAM; turns take minutes | 6 | 3 | 2 |
+| **Qwen2.5-3B** | Qwen Research (non-commercial) | 3.80B | **barely:** only with llama.cpp's micro-batch cut to 256 (5.8–5.95 GB peak); without it, spills | **11** | 1 | 0 |
+| Qwen2.5-3B, Q3_K_M | Qwen Research (non-commercial) | 3.80B | yes, 5.8 GB peak | 5 | 1 | 0 |
+
+Phi-3.5-mini (3.8B, MIT) wasn't downloaded. It would need about 1.9 GB more GPU memory than the
+1.5B (its KV cache alone is about 0.75 GB), and only about 0.56 GB is free.
+
+What this shows:
+1. **A bigger model does act on the tone.** Qwen2.5-3B acknowledged the angry voice in 11 of 15
+   replies ("I understand, but your tone suggests you're frustrated."), against 2 for the 1.5B.
+   It also stopped answering as if it were the person ("Oh no! I'm late.").
+2. **It doesn't fit this card reliably.** The only Q4 setup that stays on the GPU leaves about
+   0.2–0.3 GB spare, depending on what Windows is using. In 7 latency runs on the 158 MELD test
+   turns, its first-word p95 was 1,375–1,542 ms and missed the 1,500 ms target in 3 runs. The
+   1.5B met it in all 7 (1,066–1,311 ms).
+3. **The smaller Q3 quantisation fits, but loses most of the gain** (5 of 15).
+4. **None of them reliably plays along with teasing** (at best 3 of 9, Llama). The Qwen models
+   mostly apologise to a playful "you're the worst".
+5. **Moving the notes after the history** (so llama.cpp can reuse its cached prompt;
+   `reports/phase5_reply_prompt_layout.json`) didn't help. End-to-end p95 latency didn't improve
+   reliably, and the 3B acknowledged the tone less often (8 vs 11 of 15). The prompt layout stays
+   as it is.
+
+**Decision: keep Qwen2.5-1.5B.** The 3B is the clear quality upgrade for Pip's replies, but on a
+6 GB card it trades a reliable latency target for one it sometimes misses, and its licence is
+non-commercial. It's the first change to make on an 8 GB or larger GPU.
+
 ## 13. Decision log
 
 | Date | Decision | Why |
@@ -778,6 +818,7 @@ notes their live states produced, 2 seeds each (18 replies per condition):
 | 2026-10-17 | Recipe choice fixed before any results: best tone-dev balanced accuracy with MELD dev weighted F1 ≥ 0.613 (current model − 0.01) | Stops the tone gain being bought with MELD accuracy, and keeps test for the final score |
 | 2026-10-17 | Reply notes also mention a mismatch when the voice alone is ≥ 60% sure of a non-calm emotion; plain words get "matter-of-fact" wording instead of the sarcasm note | The person hears the tone even when the fused tag goes with the words; flat words said angrily aren't sarcasm |
 | 2026-10-17 | Reply history drops Pip's own sign-off and help-desk sentences; the prompt stays v2 | They snowballed in the live check. With the live history, 18 replies: goodbye 6 → 2, help-desk 3 → 0, apology 4 → 1. A stricter prompt (v3) didn't help (section 12) |
+| 2026-10-17 | Keep Qwen2.5-1.5B as the reply model; Qwen2.5-3B tested and not adopted | 3B acknowledged an angry voice in 11 of 15 replies vs 2, but on 6 GB it fits only with a reduced micro-batch, about 0.2–0.3 GB spare, and missed the 1.5 s first-word p95 in 3 of 7 runs; non-commercial licence (section 12) |
 | 2026-10-17 | Live model = 3-seed ensemble of `fusion_ctx3_crema_td25` (CREMA-D + words hidden 25%) | Chosen by the fixed dev rule (tone dev 0.653, MELD dev 0.634); test: tone 0.127 → 0.663, MELD 0.648 → 0.651, Whisper 0.538 → 0.557 (section 12) |
 
 ## 14. External components
@@ -842,8 +883,10 @@ when the words say little.
   English.**
 
 **What I would do next,** in order of expected value:
-1. **A stronger reply model** (Qwen2.5-3B, about 3.8B parameters in total, still under 6B). The
-   emotion state now carries the tone; the 1.5B model mostly doesn't act on it.
+1. **A stronger reply model on a bigger GPU.** Qwen2.5-3B (3.8B parameters in total) acknowledged
+   an angry voice in 11 of 15 replies, against 2 for the 1.5B, but doesn't fit a 6 GB card
+   reliably (section 12). With 8 GB or more it's the first change to make; note its
+   non-commercial licence.
 2. **A small live tone test:** 20–30 lines recorded through the demo microphone, including harsh
    words said cheerfully and kind words said angrily. That's the case CREMA-D can't test.
 3. **Voice features built for emotion** (emotion2vec+), and more happy-voice data. The voice side

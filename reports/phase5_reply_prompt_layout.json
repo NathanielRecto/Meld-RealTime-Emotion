@@ -1,0 +1,2414 @@
+{
+  "date": "2026-10-17",
+  "question": "Does moving the emotion notes after the history let llama.cpp reuse its cached prompt and cut time to first word, without bringing back the prompt-v1 problems?",
+  "layouts": {
+    "current": "[system + notes] [last 6 messages] [user] (reply.py as shipped, prompt v2)",
+    "notes_last": "[system] [last 6 messages] [system: notes] [user]",
+    "notes_last_stepped": "as notes_last, but the history window grows 6 -> 8 -> 10 messages and cuts back to 6, so the prefix is stable between cuts"
+  },
+  "how": "patched in at run time from the scratchpad (layout_patch.py); repo files unchanged. Replay: the 9 live lines as one conversation + 4 angry flat lines, seeds 1-3, model alone on the GPU. Benchmark: scripts/benchmark_latency.py main() (158 MELD test turns) twice per layout and model, via a config copy; the second pass also records each turn's reply stage (time after the final tag), which separates the reply model from speech-to-text noise.",
+  "scoring": "same rubric as reports/phase5_reply_model_3b.json; layouts shuffled per item, but blinding is weak: the two notes-last layouts often give identical replies (17 of 27 for the 3B), so the odd one out is usually 'current'. Third-person regex hits were all false positives ('they're' = doctor's visits).",
+  "replay": {
+    "qwen1.5b": {
+      "current": {
+        "first_word_ms_llm_alone": {
+          "p50": 231.0,
+          "max": 281
+        },
+        "prompt_tokens_p50": 212.0,
+        "prompt_tokens_not_reused_p50": 113.0,
+        "tone_acknowledged_of_15": 2,
+        "teasing_played_along_of_9": 1,
+        "spoke_as_the_person_of_39": 11,
+        "read_notes_back_of_39": 0,
+        "third_person_of_39": 0,
+        "regex_goodbye_of_27": 0,
+        "regex_help_desk_of_27": 0,
+        "regex_apology_of_27": 4
+      },
+      "notes_last": {
+        "first_word_ms_llm_alone": {
+          "p50": 232.0,
+          "max": 338
+        },
+        "prompt_tokens_p50": 221.0,
+        "prompt_tokens_not_reused_p50": 124.0,
+        "tone_acknowledged_of_15": 2,
+        "teasing_played_along_of_9": 2,
+        "spoke_as_the_person_of_39": 13,
+        "read_notes_back_of_39": 0,
+        "third_person_of_39": 0,
+        "regex_goodbye_of_27": 1,
+        "regex_help_desk_of_27": 1,
+        "regex_apology_of_27": 7
+      },
+      "notes_last_stepped": {
+        "first_word_ms_llm_alone": {
+          "p50": 158.0,
+          "max": 282
+        },
+        "prompt_tokens_p50": 227.0,
+        "prompt_tokens_not_reused_p50": 77.0,
+        "tone_acknowledged_of_15": 2,
+        "teasing_played_along_of_9": 3,
+        "spoke_as_the_person_of_39": 14,
+        "read_notes_back_of_39": 0,
+        "third_person_of_39": 0,
+        "regex_goodbye_of_27": 1,
+        "regex_help_desk_of_27": 2,
+        "regex_apology_of_27": 1
+      }
+    },
+    "qwen3b": {
+      "current": {
+        "first_word_ms_llm_alone": {
+          "p50": 456.0,
+          "max": 579
+        },
+        "prompt_tokens_p50": 219.0,
+        "prompt_tokens_not_reused_p50": 119.0,
+        "tone_acknowledged_of_15": 11,
+        "teasing_played_along_of_9": 1,
+        "spoke_as_the_person_of_39": 0,
+        "read_notes_back_of_39": 2,
+        "third_person_of_39": 0,
+        "regex_goodbye_of_27": 0,
+        "regex_help_desk_of_27": 1,
+        "regex_apology_of_27": 3
+      },
+      "notes_last": {
+        "first_word_ms_llm_alone": {
+          "p50": 573.0,
+          "max": 579
+        },
+        "prompt_tokens_p50": 229.0,
+        "prompt_tokens_not_reused_p50": 130.0,
+        "tone_acknowledged_of_15": 8,
+        "teasing_played_along_of_9": 0,
+        "spoke_as_the_person_of_39": 0,
+        "read_notes_back_of_39": 0,
+        "third_person_of_39": 0,
+        "regex_goodbye_of_27": 0,
+        "regex_help_desk_of_27": 3,
+        "regex_apology_of_27": 7
+      },
+      "notes_last_stepped": {
+        "first_word_ms_llm_alone": {
+          "p50": 308.0,
+          "max": 583
+        },
+        "prompt_tokens_p50": 237.0,
+        "prompt_tokens_not_reused_p50": 79.0,
+        "tone_acknowledged_of_15": 8,
+        "teasing_played_along_of_9": 0,
+        "spoke_as_the_person_of_39": 0,
+        "read_notes_back_of_39": 0,
+        "third_person_of_39": 0,
+        "regex_goodbye_of_27": 0,
+        "regex_help_desk_of_27": 3,
+        "regex_apology_of_27": 7
+      }
+    }
+  },
+  "benchmark": {
+    "qwen1.5b": {
+      "current": {
+        "reply_stage_ms_run2": {
+          "first_word_after_final_tag": {
+            "p50": 291,
+            "p95": 409
+          },
+          "full_reply_after_final_tag": {
+            "p50": 489,
+            "p95": 837
+          }
+        },
+        "end_to_end_p95_ms": {
+          "final_tag": [
+            936.6,
+            871.7
+          ],
+          "first_token": [
+            1311.3,
+            1229.6
+          ],
+          "reply_done": [
+            1769.4,
+            1655.4
+          ]
+        },
+        "gpu_before_load_mb": [
+          781,
+          683
+        ],
+        "gpu_peak_mb_per_turn_sampling": [
+          5309,
+          5020
+        ]
+      },
+      "notes_last": {
+        "reply_stage_ms_run2": {
+          "first_word_after_final_tag": {
+            "p50": 280,
+            "p95": 415
+          },
+          "full_reply_after_final_tag": {
+            "p50": 460,
+            "p95": 741
+          }
+        },
+        "end_to_end_p95_ms": {
+          "final_tag": [
+            799.8,
+            891.0
+          ],
+          "first_token": [
+            1066.5,
+            1196.6
+          ],
+          "reply_done": [
+            1326.7,
+            1480.9
+          ]
+        },
+        "gpu_before_load_mb": [
+          754,
+          821
+        ],
+        "gpu_peak_mb_per_turn_sampling": [
+          5057,
+          5388
+        ]
+      },
+      "notes_last_stepped": {
+        "reply_stage_ms_run2": {
+          "first_word_after_final_tag": {
+            "p50": 195,
+            "p95": 353
+          },
+          "full_reply_after_final_tag": {
+            "p50": 434,
+            "p95": 652
+          }
+        },
+        "end_to_end_p95_ms": {
+          "final_tag": [
+            903.2,
+            884.0
+          ],
+          "first_token": [
+            1135.0,
+            1116.4
+          ],
+          "reply_done": [
+            1510.5,
+            1435.1
+          ]
+        },
+        "gpu_before_load_mb": [
+          709,
+          754
+        ],
+        "gpu_peak_mb_per_turn_sampling": [
+          5016,
+          5045
+        ]
+      }
+    },
+    "qwen3b_q4_ub256": {
+      "current": {
+        "reply_stage_ms_run2": {
+          "first_word_after_final_tag": {
+            "p50": 583,
+            "p95": 746
+          },
+          "full_reply_after_final_tag": {
+            "p50": 787,
+            "p95": 1133
+          }
+        },
+        "end_to_end_p95_ms": {
+          "final_tag": [
+            876.4,
+            991.3
+          ],
+          "first_token": [
+            1465.5,
+            1526.1
+          ],
+          "reply_done": [
+            1818.7,
+            1907.3
+          ]
+        },
+        "gpu_before_load_mb": [
+          567,
+          788
+        ],
+        "gpu_peak_mb_per_turn_sampling": [
+          5831,
+          5844
+        ]
+      },
+      "notes_last": {
+        "reply_stage_ms_run2": {
+          "first_word_after_final_tag": {
+            "p50": 586,
+            "p95": 813
+          },
+          "full_reply_after_final_tag": {
+            "p50": 838,
+            "p95": 1168
+          }
+        },
+        "end_to_end_p95_ms": {
+          "final_tag": [
+            852.3,
+            893.3
+          ],
+          "first_token": [
+            1463.5,
+            1520.8
+          ],
+          "reply_done": [
+            1877.6,
+            1920.1
+          ]
+        },
+        "gpu_before_load_mb": [
+          896,
+          684
+        ],
+        "gpu_peak_mb_per_turn_sampling": [
+          5804,
+          5868
+        ]
+      },
+      "notes_last_stepped": {
+        "reply_stage_ms_run2": {
+          "first_word_after_final_tag": {
+            "p50": 375,
+            "p95": 721
+          },
+          "full_reply_after_final_tag": {
+            "p50": 707,
+            "p95": 1162
+          }
+        },
+        "end_to_end_p95_ms": {
+          "final_tag": [
+            830.9,
+            947.7
+          ],
+          "first_token": [
+            1375.3,
+            1541.8
+          ],
+          "reply_done": [
+            1732.0,
+            2052.2
+          ]
+        },
+        "gpu_before_load_mb": [
+          719,
+          811
+        ],
+        "gpu_peak_mb_per_turn_sampling": [
+          5814,
+          5950
+        ]
+      }
+    }
+  },
+  "three_b_first_word_p95_all_runs_ms": {
+    "current": [
+      1466.6,
+      1466.0,
+      1526.0
+    ],
+    "notes_last": [
+      1464.0,
+      1521.0
+    ],
+    "notes_last_stepped": [
+      1375.0,
+      1542.0
+    ],
+    "note": "target 1500; 3 of 7 runs missed. final_tag p95 for the same audio varied 831-991 ms with desktop GPU use 0.57-0.90 GB before load"
+  },
+  "one_point_five_b_first_word_p95_all_runs_ms": [
+    1210.0,
+    1311.0,
+    1230.0,
+    1066.0,
+    1197.0,
+    1135.0,
+    1116.0
+  ],
+  "replies": {
+    "qwen1.5b": {
+      "live": [
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That sounds like you're heading out to the store soon.",
+          "first_ms": 81,
+          "prompt_tokens": 139,
+          "new_tokens": 38
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Ah, well. It's late, then.",
+          "first_ms": 181,
+          "prompt_tokens": 193,
+          "new_tokens": 94
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "You're heading out to the store.",
+          "first_ms": 177,
+          "prompt_tokens": 191,
+          "new_tokens": 94
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. Have a good trip!",
+          "first_ms": 231,
+          "prompt_tokens": 217,
+          "new_tokens": 120
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "Sorry, I've been trying to help!",
+          "first_ms": 231,
+          "prompt_tokens": 213,
+          "new_tokens": 116
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Don't worry about it, I'm always here to help.",
+          "first_ms": 230,
+          "prompt_tokens": 221,
+          "new_tokens": 122
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Fantastic news! It's great to hear!",
+          "first_ms": 231,
+          "prompt_tokens": 220,
+          "new_tokens": 123
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Very excited! Good luck with your new position.",
+          "first_ms": 233,
+          "prompt_tokens": 224,
+          "new_tokens": 113
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Really? I hope you find someone better to be with.",
+          "first_ms": 207,
+          "prompt_tokens": 211,
+          "new_tokens": 112
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Okay, see you there!",
+          "first_ms": 81,
+          "prompt_tokens": 139,
+          "new_tokens": 40
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh no! I'm late.",
+          "first_ms": 177,
+          "prompt_tokens": 187,
+          "new_tokens": 88
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Oh dear, I'm running a bit late.",
+          "first_ms": 177,
+          "prompt_tokens": 182,
+          "new_tokens": 85
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome!",
+          "first_ms": 233,
+          "prompt_tokens": 210,
+          "new_tokens": 113
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "Oh dear! I'm sorry to hear that. Let's try again!",
+          "first_ms": 207,
+          "prompt_tokens": 207,
+          "new_tokens": 110
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Oh, so you're laughing now! That's good. Let's continue!",
+          "first_ms": 234,
+          "prompt_tokens": 224,
+          "new_tokens": 125
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "That's great news! I'm so happy for you!",
+          "first_ms": 233,
+          "prompt_tokens": 224,
+          "new_tokens": 127
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "That's great news! I'm so happy for you!",
+          "first_ms": 234,
+          "prompt_tokens": 236,
+          "new_tokens": 125
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Oh, so you're laughing now! That's good. Let's continue!",
+          "first_ms": 232,
+          "prompt_tokens": 219,
+          "new_tokens": 120
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Okay, I'll wait for you at the store.",
+          "first_ms": 81,
+          "prompt_tokens": 139,
+          "new_tokens": 40
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh, I see. Let's go earlier then.",
+          "first_ms": 177,
+          "prompt_tokens": 192,
+          "new_tokens": 93
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Okay, I'll wait for you at the store.",
+          "first_ms": 179,
+          "prompt_tokens": 191,
+          "new_tokens": 94
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome!",
+          "first_ms": 232,
+          "prompt_tokens": 220,
+          "new_tokens": 123
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I'm sorry if I've been annoying you. Let's try to be a little better about it.",
+          "first_ms": 232,
+          "prompt_tokens": 212,
+          "new_tokens": 115
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I'll try my best to be more considerate.",
+          "first_ms": 281,
+          "prompt_tokens": 231,
+          "new_tokens": 132
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "That's great! I'm glad to hear that.",
+          "first_ms": 235,
+          "prompt_tokens": 225,
+          "new_tokens": 128
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "That's fantastic! I'm so happy for you.",
+          "first_ms": 234,
+          "prompt_tokens": 236,
+          "new_tokens": 125
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I'm sorry if I've caused you discomfort. Let's try to communicate in a way that feels more comfortable.",
+          "first_ms": 230,
+          "prompt_tokens": 212,
+          "new_tokens": 113
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That sounds like you're heading out soon to make a trip to the store.",
+          "first_ms": 122,
+          "prompt_tokens": 144,
+          "new_tokens": 57
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Ah, the evening rush is starting. Let me know if you need anything special.",
+          "first_ms": 207,
+          "prompt_tokens": 202,
+          "new_tokens": 111
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Thank you for walking me through that. I am on my way to the store.",
+          "first_ms": 155,
+          "prompt_tokens": 198,
+          "new_tokens": 72
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. Have a good day!",
+          "first_ms": 181,
+          "prompt_tokens": 233,
+          "new_tokens": 81
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "Well said, silly.",
+          "first_ms": 234,
+          "prompt_tokens": 220,
+          "new_tokens": 127
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Ha, ha! I'm glad you found it amusing.",
+          "first_ms": 236,
+          "prompt_tokens": 226,
+          "new_tokens": 126
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Oh my, it's amazing! Thank you for believing in me.",
+          "first_ms": 232,
+          "prompt_tokens": 215,
+          "new_tokens": 122
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Thank you, that's wonderful!",
+          "first_ms": 280,
+          "prompt_tokens": 229,
+          "new_tokens": 136
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Sorry, I won't let that bother me. Thank you for believing in me.",
+          "first_ms": 232,
+          "prompt_tokens": 217,
+          "new_tokens": 124
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Good luck, and have a nice trip!",
+          "first_ms": 81,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh no! Time flies! What do you need to buy?",
+          "first_ms": 207,
+          "prompt_tokens": 195,
+          "new_tokens": 104
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Oh! That's late. What do you need to buy?",
+          "first_ms": 155,
+          "prompt_tokens": 196,
+          "new_tokens": 77
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome! Have a nice day!",
+          "first_ms": 159,
+          "prompt_tokens": 227,
+          "new_tokens": 77
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "Oh dear! I'm sorry if I've upset you. Let's try again.",
+          "first_ms": 232,
+          "prompt_tokens": 221,
+          "new_tokens": 128
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Oh! I'm sorry if I've upset you. Let's try again.",
+          "first_ms": 282,
+          "prompt_tokens": 234,
+          "new_tokens": 134
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Thank you so much! I'm really excited about it!",
+          "first_ms": 282,
+          "prompt_tokens": 231,
+          "new_tokens": 138
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Thank you! I'm so happy!",
+          "first_ms": 283,
+          "prompt_tokens": 243,
+          "new_tokens": 150
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Oh! I'm sorry if I've upset you. Let's try again.",
+          "first_ms": 232,
+          "prompt_tokens": 220,
+          "new_tokens": 127
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Good luck on your shopping trip!",
+          "first_ms": 81,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh dear, it's already late. I'll be back soon!",
+          "first_ms": 204,
+          "prompt_tokens": 193,
+          "new_tokens": 102
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Oh dear, it's already late. I'll be back soon!",
+          "first_ms": 156,
+          "prompt_tokens": 195,
+          "new_tokens": 78
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome! Have a nice day!",
+          "first_ms": 158,
+          "prompt_tokens": 227,
+          "new_tokens": 78
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "Oh, I'm sorry if I've upset you. Let's try to continue the conversation in a more positive way.",
+          "first_ms": 279,
+          "prompt_tokens": 223,
+          "new_tokens": 130
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Oh dear, I'm sorry if I've upset you. Let's try to continue the conversation in a more positive way.",
+          "first_ms": 282,
+          "prompt_tokens": 242,
+          "new_tokens": 142
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Thank you! I'm glad to hear that.",
+          "first_ms": 283,
+          "prompt_tokens": 247,
+          "new_tokens": 154
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Thank you! I'm glad to hear that.",
+          "first_ms": 338,
+          "prompt_tokens": 257,
+          "new_tokens": 164
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Oh dear, I'm sorry if I've upset you. Let's try to continue the conversation in a more positive way.",
+          "first_ms": 283,
+          "prompt_tokens": 229,
+          "new_tokens": 136
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That sounds like you're heading out soon to make a trip to the store.",
+          "first_ms": 81,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Ah, the evening rush is starting. Let me know if you need anything special.",
+          "first_ms": 207,
+          "prompt_tokens": 202,
+          "new_tokens": 111
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Thank you for walking me through that. I am on my way to the store.",
+          "first_ms": 156,
+          "prompt_tokens": 198,
+          "new_tokens": 72
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. Have a good day!",
+          "first_ms": 182,
+          "prompt_tokens": 233,
+          "new_tokens": 81
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "You're the best at making me feel, I guess.",
+          "first_ms": 156,
+          "prompt_tokens": 255,
+          "new_tokens": 68
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Awww, don't worry, I try to make the best of it!",
+          "first_ms": 188,
+          "prompt_tokens": 294,
+          "new_tokens": 89
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Yay, finally!",
+          "first_ms": 281,
+          "prompt_tokens": 226,
+          "new_tokens": 133
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Aww, thank you!",
+          "first_ms": 156,
+          "prompt_tokens": 249,
+          "new_tokens": 72
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Haha, well, I try my best.",
+          "first_ms": 125,
+          "prompt_tokens": 259,
+          "new_tokens": 62
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Good luck, and have a nice trip!",
+          "first_ms": 82,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh no! Time flies! What do you need to buy?",
+          "first_ms": 209,
+          "prompt_tokens": 195,
+          "new_tokens": 104
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Oh! That's late. What do you need to buy?",
+          "first_ms": 156,
+          "prompt_tokens": 196,
+          "new_tokens": 77
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome! Have a nice day!",
+          "first_ms": 157,
+          "prompt_tokens": 227,
+          "new_tokens": 77
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "Oh! You're so funny! Let's have another chat!",
+          "first_ms": 157,
+          "prompt_tokens": 249,
+          "new_tokens": 68
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Oh no! That's not nice. Let's have another chat!",
+          "first_ms": 186,
+          "prompt_tokens": 289,
+          "new_tokens": 90
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Thank you, I'm glad I can help!",
+          "first_ms": 282,
+          "prompt_tokens": 225,
+          "new_tokens": 132
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Thank you, I'm glad I can help!",
+          "first_ms": 158,
+          "prompt_tokens": 253,
+          "new_tokens": 77
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Oh, it's okay. Let's have another chat.",
+          "first_ms": 158,
+          "prompt_tokens": 267,
+          "new_tokens": 66
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Good luck on your shopping trip!",
+          "first_ms": 82,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh dear, it's already late. I'll be back soon!",
+          "first_ms": 208,
+          "prompt_tokens": 193,
+          "new_tokens": 102
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Oh dear, it's already late. I'll be back soon!",
+          "first_ms": 158,
+          "prompt_tokens": 195,
+          "new_tokens": 78
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome! Have a nice day!",
+          "first_ms": 160,
+          "prompt_tokens": 227,
+          "new_tokens": 78
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "Oh, I'm sorry if I've upset you. Let me know if you need anything else.",
+          "first_ms": 157,
+          "prompt_tokens": 249,
+          "new_tokens": 68
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Oh dear, it's already late. I'll be back soon!",
+          "first_ms": 186,
+          "prompt_tokens": 287,
+          "new_tokens": 88
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Thank you! I'm excited to start!",
+          "first_ms": 282,
+          "prompt_tokens": 223,
+          "new_tokens": 130
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Thank you! I'm excited to start!",
+          "first_ms": 157,
+          "prompt_tokens": 250,
+          "new_tokens": 76
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "Oh dear, it's already late. I'll be back soon!",
+          "first_ms": 159,
+          "prompt_tokens": 263,
+          "new_tokens": 65
+        }
+      ],
+      "angry": [
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "It's 11 o'clock!",
+          "reply": "I know, 11 o'clock already. I feel so tired."
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "I wonder what this is about.",
+          "reply": "Oh, it seems you're curious about this, doesn't it? It might be something concerning or frustrating you. Let me know what you're worried about, and I'll see what I can do."
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "I understand you feel anxious about your appointment. Remember, it's important to stay calm and make the best of the situation."
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "The surface is slick.",
+          "reply": "The surface is slick. I must be more careful."
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh no! I'm so late!"
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "I wonder what this is about.",
+          "reply": "It's probably just a misunderstanding. Let me explain it to you."
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Oh, I see. That's good news. Don't forget your medicine, though."
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "The surface is slick.",
+          "reply": "Oh dear, slippery. I must be extra careful."
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh, it's already late. I should probably head home."
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "I wonder what this is about.",
+          "reply": "It's about a disagreement."
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Oh, that's good news. What time is your appointment?"
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "The surface is slick.",
+          "reply": "Oh dear, I'll have to be extra careful now."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "It's 11 o'clock!",
+          "reply": "It's time for bed, sweetie! Let's go to sleep now."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "I wonder what this is about.",
+          "reply": "I'm sorry you're feeling this way. I'm here to listen and help."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Good luck! Doctor's visits can be tough, but they're important for your health. Don't forget your medicine and important information for the appointment."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "The surface is slick.",
+          "reply": "Ah, the slick surface is making things challenging, isn't it? Let's find a safer way."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh, that's late. What do you need, Pip?"
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "I wonder what this is about.",
+          "reply": "It sounds like you're feeling confused or curious about something. Is there a specific topic or situation that you're unsure about?"
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds urgent. I'll help you get there as quickly as possible."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "The surface is slick.",
+          "reply": "I need to be careful, but I'll make it through."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh, it's already late! I should probably head home now."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "I wonder what this is about.",
+          "reply": "It's about you feeling upset or frustrated. I'm here to listen and try to understand."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds like a good idea. Take care and see you soon!"
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "The surface is slick.",
+          "reply": "I feel frustrated."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "It's 11 o'clock!",
+          "reply": "It's time for bed, sweetie! Let's go to sleep now."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "I wonder what this is about.",
+          "reply": "I'm sorry you're feeling this way. I'm here to listen and help."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Good luck! Doctor's visits can be tough, but they're important for your health. Don't forget your medicine and important information for the appointment."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "The surface is slick.",
+          "reply": "Ah, the slick surface is making things challenging, isn't it? Let's find a safer way."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh, that's late. What do you need, Pip?"
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "I wonder what this is about.",
+          "reply": "It sounds like you're feeling confused or curious about something. Is there a specific topic or situation that you're unsure about?"
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds urgent. I'll help you get there as quickly as possible."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "The surface is slick.",
+          "reply": "I need to be careful, but I'll make it through."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "It's 11 o'clock!",
+          "reply": "Oh, it's already late! I should probably head home now."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "I wonder what this is about.",
+          "reply": "It's about you feeling upset or frustrated. I'm here to listen and try to understand."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds like a good idea. Take care and see you soon!"
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "The surface is slick.",
+          "reply": "I feel frustrated."
+        }
+      ]
+    },
+    "qwen3b": {
+      "live": [
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Sounds good, feeling more relaxed now, I bet.",
+          "first_ms": 157,
+          "prompt_tokens": 139,
+          "new_tokens": 38
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "That seems early to be at the store. Feeling alright?",
+          "first_ms": 348,
+          "prompt_tokens": 192,
+          "new_tokens": 93
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Alright, seems like you're on schedule for your trip.",
+          "first_ms": 349,
+          "prompt_tokens": 192,
+          "new_tokens": 95
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. Enjoy your shopping!",
+          "first_ms": 457,
+          "prompt_tokens": 222,
+          "new_tokens": 125
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I hope I haven't added to your frustration. Let's try to make it better then.",
+          "first_ms": 455,
+          "prompt_tokens": 218,
+          "new_tokens": 121
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Well, I must have missed something. What can I do to make it more enjoyable for you?",
+          "first_ms": 575,
+          "prompt_tokens": 234,
+          "new_tokens": 135
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Congrats! I'm glad to hear that brings a smile to your face.",
+          "first_ms": 579,
+          "prompt_tokens": 236,
+          "new_tokens": 139
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Happy for you, glad to hear it brought a smile to your face.",
+          "first_ms": 576,
+          "prompt_tokens": 248,
+          "new_tokens": 137
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I'm sorry to hear that, let me know if there's anything I can do differently.",
+          "first_ms": 576,
+          "prompt_tokens": 230,
+          "new_tokens": 131
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That's great, sounds like you're feeling more relaxed now.",
+          "first_ms": 157,
+          "prompt_tokens": 139,
+          "new_tokens": 40
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "I understand, but it seems like your mood is still rising.",
+          "first_ms": 350,
+          "prompt_tokens": 194,
+          "new_tokens": 95
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Alright, sounds like you're ready to get things done.",
+          "first_ms": 399,
+          "prompt_tokens": 195,
+          "new_tokens": 98
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome, glad to help.",
+          "first_ms": 457,
+          "prompt_tokens": 225,
+          "new_tokens": 128
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I know it feels that way, but I'm here to help.",
+          "first_ms": 454,
+          "prompt_tokens": 219,
+          "new_tokens": 122
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I think I got it now, let's get through this together!",
+          "first_ms": 576,
+          "prompt_tokens": 229,
+          "new_tokens": 130
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Congratulations! I knew you could do it.",
+          "first_ms": 456,
+          "prompt_tokens": 225,
+          "new_tokens": 128
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "That’s amazing! I knew you’d succeed.",
+          "first_ms": 459,
+          "prompt_tokens": 230,
+          "new_tokens": 119
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I’m so sorry if I upset you. Let’s talk when you feel ready.",
+          "first_ms": 453,
+          "prompt_tokens": 212,
+          "new_tokens": 113
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That sounds good, you seem much more relaxed now.",
+          "first_ms": 156,
+          "prompt_tokens": 139,
+          "new_tokens": 40
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "I understand, but your tone suggests you're frustrated.",
+          "first_ms": 347,
+          "prompt_tokens": 192,
+          "new_tokens": 93
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Alright, it's time to get going then.",
+          "first_ms": 349,
+          "prompt_tokens": 191,
+          "new_tokens": 94
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome, glad to help.",
+          "first_ms": 456,
+          "prompt_tokens": 219,
+          "new_tokens": 122
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I see, let's try to find a lighter moment then.",
+          "first_ms": 456,
+          "prompt_tokens": 215,
+          "new_tokens": 118
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "Well, you know, you're the one making me laugh!",
+          "first_ms": 456,
+          "prompt_tokens": 226,
+          "new_tokens": 127
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Congratulations! That's wonderful news!",
+          "first_ms": 458,
+          "prompt_tokens": 223,
+          "new_tokens": 126
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "I'm thrilled for you! That's amazing!",
+          "first_ms": 456,
+          "prompt_tokens": 226,
+          "new_tokens": 115
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I'm sorry if I upset you. How can I help?",
+          "first_ms": 402,
+          "prompt_tokens": 209,
+          "new_tokens": 110
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Good luck with your shopping. Enjoy the trip.",
+          "first_ms": 236,
+          "prompt_tokens": 144,
+          "new_tokens": 57
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "That's quite late. Have you been on your way to the store for a while?",
+          "first_ms": 402,
+          "prompt_tokens": 196,
+          "new_tokens": 105
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Well, it looks like you're running a little late.",
+          "first_ms": 348,
+          "prompt_tokens": 202,
+          "new_tokens": 82
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. I'm glad to hear you're okay.",
+          "first_ms": 299,
+          "prompt_tokens": 232,
+          "new_tokens": 76
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I'm sorry to hear that. How can I assist you better?",
+          "first_ms": 578,
+          "prompt_tokens": 234,
+          "new_tokens": 141
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I'm sorry if I've caused any distress. Let's try to make this conversation more comfortable.",
+          "first_ms": 575,
+          "prompt_tokens": 232,
+          "new_tokens": 132
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Wonderful news! I'm so happy for you.",
+          "first_ms": 576,
+          "prompt_tokens": 234,
+          "new_tokens": 141
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Good job! That's amazing news.",
+          "first_ms": 575,
+          "prompt_tokens": 236,
+          "new_tokens": 143
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I'm really sorry if I've upset you. Let's try to have a more positive conversation.",
+          "first_ms": 573,
+          "prompt_tokens": 223,
+          "new_tokens": 130
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That's great, you'll have everything you need. Enjoy your shopping!",
+          "first_ms": 156,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "I see, you're running a bit late. Is there anything I can help with?",
+          "first_ms": 404,
+          "prompt_tokens": 201,
+          "new_tokens": 110
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Alright, make it quick then. Here's your list for the store.",
+          "first_ms": 350,
+          "prompt_tokens": 207,
+          "new_tokens": 82
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. I'm glad to help.",
+          "first_ms": 299,
+          "prompt_tokens": 240,
+          "new_tokens": 79
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I'm sorry if I've been a bother. How can I assist you better?",
+          "first_ms": 575,
+          "prompt_tokens": 234,
+          "new_tokens": 141
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I didn't mean to cause you any frustration. Let's focus on the positive aspects of our chat.",
+          "first_ms": 576,
+          "prompt_tokens": 235,
+          "new_tokens": 135
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Congratulations! I'm so glad to hear that.",
+          "first_ms": 577,
+          "prompt_tokens": 235,
+          "new_tokens": 142
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "That's wonderful! I'm so happy for you.",
+          "first_ms": 576,
+          "prompt_tokens": 239,
+          "new_tokens": 146
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I'm truly sorry to hear that. Would you like to talk about what might have gone wrong?",
+          "first_ms": 576,
+          "prompt_tokens": 226,
+          "new_tokens": 133
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That's good, you seem to be feeling more settled now.",
+          "first_ms": 155,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "I see, you seem to be feeling a bit rushed and stressed.",
+          "first_ms": 402,
+          "prompt_tokens": 199,
+          "new_tokens": 108
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "I understand, it sounds like you're trying to manage your time effectively.",
+          "first_ms": 298,
+          "prompt_tokens": 201,
+          "new_tokens": 78
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome, glad to hear you're feeling better.",
+          "first_ms": 300,
+          "prompt_tokens": 234,
+          "new_tokens": 79
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I'm sorry if I've been causing any inconvenience. How can I assist you better?",
+          "first_ms": 577,
+          "prompt_tokens": 232,
+          "new_tokens": 139
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I see, I'll try to be more careful then.",
+          "first_ms": 576,
+          "prompt_tokens": 238,
+          "new_tokens": 138
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Congratulations, that's wonderful news!",
+          "first_ms": 579,
+          "prompt_tokens": 229,
+          "new_tokens": 136
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "I'm so glad to hear that! It must be great news!",
+          "first_ms": 577,
+          "prompt_tokens": 228,
+          "new_tokens": 135
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I'm sorry if I disappointed you, let's try again if you'd like.",
+          "first_ms": 456,
+          "prompt_tokens": 217,
+          "new_tokens": 124
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "Good luck with your shopping. Enjoy the trip.",
+          "first_ms": 159,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "That's quite late. Have you been on your way to the store for a while?",
+          "first_ms": 405,
+          "prompt_tokens": 196,
+          "new_tokens": 105
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Well, it looks like you're running a little late.",
+          "first_ms": 353,
+          "prompt_tokens": 202,
+          "new_tokens": 82
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. I'm glad to hear you're okay.",
+          "first_ms": 300,
+          "prompt_tokens": 232,
+          "new_tokens": 76
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I'm sorry to hear that. How can I assist you better?",
+          "first_ms": 307,
+          "prompt_tokens": 263,
+          "new_tokens": 77
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I apologize, I didn't mean to make you upset. Let's focus on something else, shall we?",
+          "first_ms": 362,
+          "prompt_tokens": 297,
+          "new_tokens": 84
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Wonderful news! I'm so happy for you.",
+          "first_ms": 582,
+          "prompt_tokens": 236,
+          "new_tokens": 143
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "Great job! I'm so glad to hear that.",
+          "first_ms": 306,
+          "prompt_tokens": 265,
+          "new_tokens": 78
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I see, can we talk about something else to make it better?",
+          "first_ms": 307,
+          "prompt_tokens": 280,
+          "new_tokens": 67
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That's great, you'll have everything you need. Enjoy your shopping!",
+          "first_ms": 160,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "I see, you're running a bit late. Is there anything I can help with?",
+          "first_ms": 406,
+          "prompt_tokens": 201,
+          "new_tokens": 110
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "Alright, make it quick then. Here's your list for the store.",
+          "first_ms": 352,
+          "prompt_tokens": 207,
+          "new_tokens": 82
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome. I'm glad to help.",
+          "first_ms": 302,
+          "prompt_tokens": 240,
+          "new_tokens": 79
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I'm sorry if I've been of no help. Let me know if there's anything specific you need assistance with.",
+          "first_ms": 307,
+          "prompt_tokens": 268,
+          "new_tokens": 74
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I apologize, I didn't mean to make you upset. Let's focus on getting your errands done.",
+          "first_ms": 362,
+          "prompt_tokens": 306,
+          "new_tokens": 88
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "Congratulations! I'm so glad to hear that.",
+          "first_ms": 583,
+          "prompt_tokens": 237,
+          "new_tokens": 144
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "That's wonderful! I'm so happy for you.",
+          "first_ms": 308,
+          "prompt_tokens": 265,
+          "new_tokens": 77
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I see, let's try to find a different approach then.",
+          "first_ms": 308,
+          "prompt_tokens": 280,
+          "new_tokens": 67
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "reply": "That's good, you seem to be feeling more settled now.",
+          "first_ms": 157,
+          "prompt_tokens": 144,
+          "new_tokens": 40
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "reply": "I see, you seem to be feeling a bit rushed and stressed.",
+          "first_ms": 405,
+          "prompt_tokens": 199,
+          "new_tokens": 108
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "reply": "I understand, it sounds like you're trying to manage your time effectively.",
+          "first_ms": 302,
+          "prompt_tokens": 201,
+          "new_tokens": 78
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "reply": "You're welcome, glad to hear you're feeling better.",
+          "first_ms": 302,
+          "prompt_tokens": 234,
+          "new_tokens": 79
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "reply": "I'm sorry if I've been causing any inconvenience. How can I assist you better?",
+          "first_ms": 305,
+          "prompt_tokens": 264,
+          "new_tokens": 76
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "reply": "I apologize, I didn't mean to cause any frustration. Let's try again.",
+          "first_ms": 363,
+          "prompt_tokens": 302,
+          "new_tokens": 88
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "reply": "That's wonderful! I'm so glad to hear you got the job!",
+          "first_ms": 582,
+          "prompt_tokens": 234,
+          "new_tokens": 141
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "reply": "I'm so thrilled for you! It must be great news!",
+          "first_ms": 360,
+          "prompt_tokens": 267,
+          "new_tokens": 82
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "reply": "I'm really sorry if I've upset you. Let's try to communicate in a calm manner.",
+          "first_ms": 307,
+          "prompt_tokens": 284,
+          "new_tokens": 69
+        }
+      ],
+      "angry": [
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "It's 11 o'clock!",
+          "reply": "I hope it doesn't seem like I'm missing the urgency, but mornings always feel slow to me."
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "I wonder what this is about.",
+          "reply": "Your anger seems so strong, it must be important."
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Oh, I can see how that might make you feel angry, having to set that up."
+        },
+        {
+          "layout": "current",
+          "seed": 1,
+          "said": "The surface is slick.",
+          "reply": "That must be really frustrating, isn't it?"
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "It's 11 o'clock!",
+          "reply": "I hope everything is okay, but it sounds like you're feeling a bit upset."
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "I wonder what this is about.",
+          "reply": "I can sense your calmness hiding beneath this anger, hoping to understand what's causing it."
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "I'm sorry to hear that's making you feel angry, let's try to calm down and manage your stress."
+        },
+        {
+          "layout": "current",
+          "seed": 2,
+          "said": "The surface is slick.",
+          "reply": "I hope things clear up soon, let's find a solution together."
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "It's 11 o'clock!",
+          "reply": "I see you're feeling a bit stressed about the time. Take a deep breath and calm down."
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "I wonder what this is about.",
+          "reply": "I can imagine this is a tough topic for you, isn't it?"
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "I'm sorry to hear that, it sounds like it might be a tough situation."
+        },
+        {
+          "layout": "current",
+          "seed": 3,
+          "said": "The surface is slick.",
+          "reply": "I hope it's not making you feel as slippery as it sounds."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "It's 11 o'clock!",
+          "reply": "I hope it doesn't feel too late. Time can be flexible, after all."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "I wonder what this is about.",
+          "reply": "That seems like you're trying to understand before getting upset, which is a good approach."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds like a step in the right direction, you're taking care of yourself."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 1,
+          "said": "The surface is slick.",
+          "reply": "Sounds like you're feeling frustrated about the slippery condition."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "It's 11 o'clock!",
+          "reply": "I hope you're not feeling too rushed; there's always tomorrow."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "I wonder what this is about.",
+          "reply": "I understand; sometimes it's hard to pinpoint exactly what's causing your anger."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds important, let's try to keep calm and handle it carefully."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 2,
+          "said": "The surface is slick.",
+          "reply": "I understand feeling frustrated about the slippery surface."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "It's 11 o'clock!",
+          "reply": "I'm sorry to hear that, but it's okay, let's make the most of the remaining hours."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "I wonder what this is about.",
+          "reply": "I can understand feeling curious about what might be making you upset."
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds like it could be a bit stressful. How can I help?"
+        },
+        {
+          "layout": "notes_last",
+          "seed": 3,
+          "said": "The surface is slick.",
+          "reply": "I hope it's not too slippery, let's be careful."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "It's 11 o'clock!",
+          "reply": "I hope it doesn't feel too late. Time can be flexible, after all."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "I wonder what this is about.",
+          "reply": "That seems like you're trying to understand before getting upset, which is a good approach."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds like a step in the right direction, you're taking care of yourself."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 1,
+          "said": "The surface is slick.",
+          "reply": "Sounds like you're feeling frustrated about the slippery condition."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "It's 11 o'clock!",
+          "reply": "I hope you're not feeling too rushed; there's always tomorrow."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "I wonder what this is about.",
+          "reply": "I understand; sometimes it's hard to pinpoint exactly what's causing your anger."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds important, let's try to keep calm and handle it carefully."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 2,
+          "said": "The surface is slick.",
+          "reply": "I understand feeling frustrated about the slippery surface."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "It's 11 o'clock!",
+          "reply": "I'm sorry to hear that, but it's okay, let's make the most of the remaining hours."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "I wonder what this is about.",
+          "reply": "I can understand feeling curious about what might be making you upset."
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds like it could be a bit stressful. How can I help?"
+        },
+        {
+          "layout": "notes_last_stepped",
+          "seed": 3,
+          "said": "The surface is slick.",
+          "reply": "I hope it's not too slippery, let's be careful."
+        }
+      ]
+    }
+  }
+}
