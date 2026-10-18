@@ -26,6 +26,12 @@ turns (3 fine-tuned RoBERTa fusion models, averaged) → a short reply streamed 
 (llama.cpp). The design doc explains the decisions, the definition of "real-time", what was tried
 and didn't work, and the limitations.
 
+One live microphone turn in the web demo: "It's 11 o'clock!" said angrily. The words alone read as
+joy, but the voice is angry, so the final tag is **anger**, and the page flags that words and voice
+disagree. The voice tag arrived 36 ms after the turn ended and the final tag 462 ms after.
+
+![Web demo: a live turn where an angry voice outweighs the words](docs/img/live_turn14.png)
+
 ## Setup (Windows, NVIDIA GPU)
 
 1. Create and activate a virtual environment. Use Python 3.10–3.12, the versions with prebuilt
@@ -165,8 +171,10 @@ python scripts/benchmark_latency.py --turns 150   # latency per stage, GPU memor
 python scripts/reply_check.py --per-class 5       # replies with vs without the emotion notes
 ```
 
-`reports/phase4_reply_sheet.md` is a blind A/B sheet: rate it without looking at the key to judge
-whether the emotion notes make Pip's replies fit better.
+`reports/phase4_reply_sheet.md` is a blind A/B sheet: does a reply written with the emotion notes
+fit how the person felt better than one written without them? Rated blind, no: the reply with the
+notes was better on 14 of 35 lines and worse on 18 (`python scripts/tally_reply_sheet.py`; DESIGN
+section 11).
 
 ## Layout
 

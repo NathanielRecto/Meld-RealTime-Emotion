@@ -540,10 +540,23 @@ and made no clear difference in 24.
 - **With prompt v1 the notes looked clearly helpful** (12 better, 4 worse). That was mostly
   because the no-notes replies suffered from the same prompt flaws.
 
-**Conclusion:** the emotion state does steer Pip's replies, but with a 1.5B reply model and the
-current emotion accuracy, a clear benefit isn't shown. Two ways to settle it: the blind sheet,
-rated by someone who can't see which reply had the notes (still to do), and a stronger reply
-model. Qwen2.5-3B would still fit the budget at about 3.8B total.
+**Blind rating (2026-10-18).** The 35 pairs were then rated blind by me: A, B or "=", judging only
+which reply fits how the person felt, without the key. `scripts/tally_reply_sheet.py` unblinded the
+ratings (`reports/phase4_reply_ratings.json`):
+
+| Lines | Reply with notes better | Reply without notes better | Same | Sign test p |
+|---|---|---|---|---|
+| All 35 | 14 | 18 | 3 | 0.60 |
+| Emotion predicted right (15) | 6 | 8 | 1 | 0.79 |
+| Emotion predicted wrong (20) | 8 | 10 | 2 | 0.82 |
+
+**Conclusion:** the emotion state does steer Pip's replies, but **the notes don't make them fit
+better**. They lost slightly overall (14 vs 18), within chance. That holds even on the lines where
+the emotion was right, so it's the reply model, not only the emotion model. These replies came from
+the Phase 4 setup: the Phase 4 emotion model, prompt v2, no conversation history and the 1.5B reply
+model. Section 12 shows that a 3B reply model acts on the notes far more often but doesn't fit this
+GPU reliably. With 5 lines per emotion, the per-emotion split in the JSON is too small to read
+anything into.
 
 ## 12. Phase 5: making the voice count
 
@@ -867,7 +880,8 @@ when the words say little.
 - **Turn-taking is silence-based.** A pause over 400 ms ends a turn, even mid-sentence. There is
   no barge-in and no speaker identification, so several voices are treated as one person.
 - **Replies come from a 1.5B model.** They are short and on topic, sometimes too literal, and in
-  the Phase 4 check (section 11) the emotion notes changed them without a clear gain in fit. A
+  the Phase 4 check (section 11) the emotion notes changed them without a gain in fit: rated blind,
+  the reply with the notes was better on 14 of 35 lines and worse on 18. A
   wrong emotion can mislead the reply, and a right one is often ignored: with an angry voice on
   flat words, the notes now say so, but Pip rarely acknowledges it (section 12).
 - **Hardware-specific choices.** fp32 everywhere on the GTX 1660 SUPER (fp16 was slower or
