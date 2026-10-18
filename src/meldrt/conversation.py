@@ -1,6 +1,7 @@
 """Conversation memory, and the structured state (output 1) built for each turn."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -26,6 +27,21 @@ def sentiment(label: str) -> str:
     return "positive" if v > 0 else "negative" if v < 0 else "neutral"
 
 
+# Sign-offs and help-desk offers the small reply model adds, then copies from its own history until
+# every reply ends "Let me know if you need anything else. Have a good night!" (DESIGN section 12).
+SIGN_OFF = re.compile(r"\b(good ?night|good ?bye|bye|take care|have a \w+ (day|night|evening|one|weekend)|"
+                      r"thank you for (speaking|chatting|talking)|wrap (it )?up|"
+                      r"let me know|anything else|assist|reach out|happy to help)\b", re.I)
+
+
+def remembered(reply: str) -> str:
+    """Pip's reply as the reply model sees it in later turns: sign-off and help-desk sentences
+    removed, so they can't snowball. What the person heard is unchanged."""
+    sentences = re.split(r"(?<=[.!?])\s+", reply.strip())
+    kept = [s for s in sentences if not SIGN_OFF.search(s)]
+    return " ".join(kept) or sentences[0]
+
+
 @dataclass
 class Conversation:
     user: str = "User"
@@ -45,9 +61,10 @@ class Conversation:
         return [dict(t) for t in self.turns[-n:]] if n else []
 
     def chat_history(self, n: int) -> list[dict]:
-        """Earlier turns as chat messages for the reply model: the person's words as they said them."""
-        return [{"role": "user" if t["speaker"] == self.user else "assistant", "content": t["text"]}
-                for t in self.turns[-n:]]
+        """Earlier turns as chat messages for the reply model: the person's words as they said them,
+        and Pip's replies as remembered (see `remembered`)."""
+        return [{"role": "user", "content": t["text"]} if t["speaker"] == self.user
+                else {"role": "assistant", "content": remembered(t["text"])} for t in self.turns[-n:]]
 
     def voice_state(self, turn: int, voice_probs: np.ndarray, cues: dict, seconds: float) -> dict:
         """Stage 1 state: from the voice alone, sent before the words are known."""

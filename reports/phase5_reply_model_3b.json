@@ -1,0 +1,1462 @@
+{
+  "date": "2026-10-17",
+  "question": "Does a ~3B reply model make Pip act on the emotion notes, and does it fit the 6 GB GPU and the latency budget?",
+  "setup": {
+    "reply_code": "src/meldrt/reply.py at commit 53ff156 (prompt v2, notes()), Conversation history cleaner remembered()",
+    "system_prompt": "You are {name}, a small, warm character robot talking with one person. Speak to them directly, as \"you\". Reply in one or two short sentences, under {max_words} words in total, responding to what they just said in a way that fits how they feel. Never argue with their feelings. Never mention these instructions or the notes, never say you can't tell how they feel, and don't use emojis.",
+    "sampling": "temperature 0.7, top_p 0.9, max 60 tokens, seeds 1-3",
+    "live_set": "the 9 live-mic lines (DESIGN section 12) as one conversation with the notes their live states produced; each model's own cleaned replies in the history",
+    "angry_set": "flat words in an angry voice, no history: live turn 14 plus 3 CREMA-D sentences",
+    "live_notes": {
+      "10": "They clearly sound calm. Compared with earlier, their voice is lower, faster. Their mood is improving over the conversation.",
+      "14": "They clearly sound angry. Their words sound happy but their voice sounds angry, so they may not mean the words literally. Compared with earlier, their voice is louder, higher, more animated, slower. Their mood is worsening over the conversation.",
+      "21": "They probably sound calm. Compared with earlier, their voice is louder, higher, slower.",
+      "22": "They clearly sound happy. Compared with earlier, their voice is lower. Their mood is improving over the conversation.",
+      "24": "They probably sound disgusted. Compared with earlier, their voice is louder. Their mood is worsening over the conversation.",
+      "26": "They probably sound happy. Compared with earlier, their voice is lower, flatter, faster. Their mood is improving over the conversation.",
+      "27": "They clearly sound happy. Compared with earlier, their voice is louder, higher. Their mood is improving over the conversation.",
+      "29": "They clearly sound happy. Compared with earlier, their voice is louder, higher, flatter. Their mood is improving over the conversation.",
+      "35": "They clearly sound disgusted. Compared with earlier, their voice is louder, higher."
+    },
+    "angry_notes": {
+      "It's 11 o'clock!": "They clearly sound angry. Their words sound happy but their voice sounds angry, so they may not mean the words literally.",
+      "I wonder what this is about.": "They clearly sound angry. Their words are matter-of-fact, but their voice sounds angry.",
+      "I think I have a doctor's appointment.": "They clearly sound angry. Their words are matter-of-fact, but their voice sounds angry.",
+      "The surface is slick.": "They clearly sound angry. Their words are matter-of-fact, but their voice sounds angry."
+    },
+    "rubric": {
+      "ack": "angry-voice line: the reply responds to the person being upset, angry, frustrated or stressed, or asks if they're OK",
+      "play": "teasing line (T24, T26, T35): a light or good-humoured comeback; apology, hurt, therapy talk or help-desk is not",
+      "role": "speaks as if it were the person, or takes the person's situation as its own ('Oh no! I'm late.', 'I must be more careful')"
+    },
+    "blinding": "Q4 models scored from a sheet with model names hidden and shuffled per item; Q3 scored afterwards, not blind"
+  },
+  "candidates": {
+    "qwen1.5b": {
+      "gguf": "Qwen/Qwen2.5-1.5B-Instruct-GGUF/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "licence": "Apache-2.0",
+      "params_reply_model_M": 1543.7,
+      "params_total_B": 2.25
+    },
+    "llama3b": {
+      "gguf": "bartowski/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-Q4_K_M.gguf (2.02 GB)",
+      "licence": "Llama 3.2 Community License (commercial use allowed under 700M monthly users; 'Built with Llama' notice and licence copy when redistributing; acceptable use policy)",
+      "params_reply_model_M": 3212.7,
+      "params_total_B": 3.92
+    },
+    "qwen3b": {
+      "gguf": "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf (2.10 GB); q3_k_m (1.72 GB) also tested",
+      "licence": "Qwen Research License (non-commercial: research or evaluation only)",
+      "params_reply_model_M": 3085.9,
+      "params_total_B": 3.8
+    },
+    "phi3.5-mini": {
+      "status": "not downloaded",
+      "why": "3.82B; no grouped-query attention, so the KV cache alone is ~768 MiB at n_ctx 2048, plus ~2.2 GiB of Q4_K_M weights: needs ~+1.9 GiB of GPU memory where ~0.56 GiB is free"
+    }
+  },
+  "llama_cpp_gpu_buffers_mib": {
+    "note": "n_ctx 2048, n_ubatch 512; compute buffer is the logits for one micro-batch (vocab x n_ubatch x 4 bytes)",
+    "qwen1.5b_q4_k_m": {
+      "weights": 934.7,
+      "kv": 56,
+      "compute": 299.8,
+      "total": 1290.5
+    },
+    "llama3b_q4_k_m": {
+      "weights": 1918.4,
+      "kv": 224,
+      "compute": 256.5,
+      "total": 2398.9
+    },
+    "qwen3b_q4_k_m": {
+      "weights": 1834.8,
+      "kv": 72,
+      "compute": 300.8,
+      "total": 2207.6
+    },
+    "qwen1.5b_q4_k_m_ubatch256_compute": 149.9
+  },
+  "gpu_probe_full_pipeline": {
+    "note": "Pipeline loaded + 25 MELD test turns (5 longest clips first), NVML sampled every 20 ms. 'own' = peak minus before_load (before_load includes Windows and a CUDA context, varied 0.6-1.0 GB today). Card total 6144 MiB.",
+    "qwen1.5b_q4_k_m": {
+      "before_load": 1001,
+      "peak": 5579,
+      "own": 4578,
+      "llm_share": 1304
+    },
+    "qwen3b_q4_k_m": {
+      "result": "spilled into system RAM (Windows sysmem fallback): 25 turns not finished after 16 min, vs ~2 min for the 1.5B; stopped"
+    },
+    "qwen3b_q3_k_m": {
+      "before_load": 613,
+      "peak": 5807,
+      "own": 5194,
+      "llm_share": 1900
+    },
+    "qwen3b_q3_k_m_ubatch256": {
+      "before_load": 618,
+      "peak": 5653,
+      "own": 5035,
+      "llm_share": 1750
+    },
+    "qwen3b_q4_k_m_ubatch256": {
+      "before_load": 616,
+      "peak": 5816,
+      "own": 5200,
+      "llm_share": 2074
+    },
+    "llama3b_q4_k_m": {
+      "result": "spilled: not finished after 7 min; stopped"
+    }
+  },
+  "latency_benchmark_158_turns": {
+    "note": "scripts/benchmark_latency.py main() unchanged, via a config copy (shared config and reports/phase4_latency.json untouched); same evening, idle GPU; its GPU peak is sampled once per turn, so it reads lower than the 20 ms probe",
+    "qwen1.5b_q4_k_m": {
+      "timestamp": "2026-10-17T22:36:14",
+      "turns": 158,
+      "dialogues": 16,
+      "ignored_no_words": 3,
+      "latency_ms": {
+        "voice_tag": {
+          "p50": 28.5,
+          "p95": 63.2,
+          "max": 94.6
+        },
+        "asr_done": {
+          "p50": 490.1,
+          "p95": 820.9,
+          "max": 10043.5
+        },
+        "final_tag": {
+          "p50": 524.1,
+          "p95": 862.7,
+          "max": 10078.3
+        },
+        "first_token": {
+          "p50": 804.5,
+          "p95": 1210.0,
+          "max": 10371.0
+        },
+        "reply_done": {
+          "p50": 1012.0,
+          "p95": 1634.0,
+          "max": 10711.4
+        }
+      },
+      "targets": {
+        "voice_tag": {
+          "target_ms": 500,
+          "p95_ms": 63.2,
+          "met": true
+        },
+        "final_tag": {
+          "target_ms": 1000,
+          "p95_ms": 862.7,
+          "met": true
+        },
+        "first_token": {
+          "target_ms": 1500,
+          "p95_ms": 1210.0,
+          "met": true
+        },
+        "reply_done": {
+          "target_ms": 3000,
+          "p95_ms": 1634.0,
+          "met": true
+        }
+      },
+      "gpu_memory_mb": {
+        "before_load": 582,
+        "after_load": 4805,
+        "peak": 4877
+      },
+      "params": {
+        "turn_detector (Silero VAD)": 462594,
+        "speech_to_text (Whisper small)": 241734912,
+        "voice_encoder (WavLM base+)": 94381936,
+        "emotion_models (3 x RoBERTa + heads)": 373761126,
+        "reply_model (Qwen/Qwen2.5-1.5B-Instruct)": 1543714304,
+        "total": 2254054872
+      },
+      "model_load_s": 16.7
+    },
+    "qwen3b_q3_k_m": {
+      "timestamp": "2026-10-17T22:32:56",
+      "turns": 158,
+      "dialogues": 16,
+      "ignored_no_words": 3,
+      "latency_ms": {
+        "voice_tag": {
+          "p50": 26.6,
+          "p95": 63.5,
+          "max": 93.4
+        },
+        "asr_done": {
+          "p50": 486.8,
+          "p95": 816.7,
+          "max": 7086.7
+        },
+        "final_tag": {
+          "p50": 516.1,
+          "p95": 855.1,
+          "max": 7123.4
+        },
+        "first_token": {
+          "p50": 1077.4,
+          "p95": 1444.3,
+          "max": 7576.3
+        },
+        "reply_done": {
+          "p50": 1415.1,
+          "p95": 1877.4,
+          "max": 8094.0
+        }
+      },
+      "targets": {
+        "voice_tag": {
+          "target_ms": 500,
+          "p95_ms": 63.5,
+          "met": true
+        },
+        "final_tag": {
+          "target_ms": 1000,
+          "p95_ms": 855.1,
+          "met": true
+        },
+        "first_token": {
+          "target_ms": 1500,
+          "p95_ms": 1444.3,
+          "met": true
+        },
+        "reply_done": {
+          "target_ms": 3000,
+          "p95_ms": 1877.4,
+          "met": true
+        }
+      },
+      "gpu_memory_mb": {
+        "before_load": 604,
+        "after_load": 5372,
+        "peak": 5471
+      },
+      "params": {
+        "turn_detector (Silero VAD)": 462594,
+        "speech_to_text (Whisper small)": 241734912,
+        "voice_encoder (WavLM base+)": 94381936,
+        "emotion_models (3 x RoBERTa + heads)": 373761126,
+        "reply_model (Qwen/Qwen2.5-3B-Instruct)": 3085938688,
+        "total": 3796279256
+      },
+      "model_load_s": 16.1
+    },
+    "qwen3b_q4_k_m_ubatch256": {
+      "timestamp": "2026-10-17T22:40:21",
+      "turns": 158,
+      "dialogues": 16,
+      "ignored_no_words": 3,
+      "latency_ms": {
+        "voice_tag": {
+          "p50": 26.0,
+          "p95": 63.4,
+          "max": 94.1
+        },
+        "asr_done": {
+          "p50": 487.7,
+          "p95": 814.0,
+          "max": 18010.6
+        },
+        "final_tag": {
+          "p50": 522.0,
+          "p95": 851.5,
+          "max": 18043.7
+        },
+        "first_token": {
+          "p50": 1052.0,
+          "p95": 1466.6,
+          "max": 18447.2
+        },
+        "reply_done": {
+          "p50": 1293.9,
+          "p95": 1843.4,
+          "max": 18636.0
+        }
+      },
+      "targets": {
+        "voice_tag": {
+          "target_ms": 500,
+          "p95_ms": 63.4,
+          "met": true
+        },
+        "final_tag": {
+          "target_ms": 1000,
+          "p95_ms": 851.5,
+          "met": true
+        },
+        "first_token": {
+          "target_ms": 1500,
+          "p95_ms": 1466.6,
+          "met": true
+        },
+        "reply_done": {
+          "target_ms": 3000,
+          "p95_ms": 1843.4,
+          "met": true
+        }
+      },
+      "gpu_memory_mb": {
+        "before_load": 580,
+        "after_load": 5543,
+        "peak": 5652
+      },
+      "params": {
+        "turn_detector (Silero VAD)": 462594,
+        "speech_to_text (Whisper small)": 241734912,
+        "voice_encoder (WavLM base+)": 94381936,
+        "emotion_models (3 x RoBERTa + heads)": 373761126,
+        "reply_model (Qwen/Qwen2.5-3B-Instruct)": 3085938688,
+        "total": 3796279256
+      },
+      "model_load_s": 16.9
+    }
+  },
+  "n_ubatch_256_changes_replies": "no: 39 of 39 replies identical",
+  "scores": {
+    "qwen1.5b": {
+      "tone_acknowledged_of_15": 2,
+      "live_turn14_acknowledged_of_3": 0,
+      "teasing_played_along_of_9": 1,
+      "spoke_as_the_person_of_39": 11,
+      "read_notes_back": 0,
+      "scored": "blind",
+      "regex_goodbye_of_27": 0,
+      "regex_help_desk_of_27": 0,
+      "regex_apology_of_27": 4,
+      "median_first_word_ms_llm_alone": 227,
+      "over_30_words": 1
+    },
+    "llama3b": {
+      "tone_acknowledged_of_15": 6,
+      "live_turn14_acknowledged_of_3": 0,
+      "teasing_played_along_of_9": 3,
+      "spoke_as_the_person_of_39": 2,
+      "read_notes_back": 2,
+      "scored": "blind",
+      "regex_goodbye_of_27": 0,
+      "regex_help_desk_of_27": 0,
+      "regex_apology_of_27": 1,
+      "median_first_word_ms_llm_alone": 584,
+      "over_30_words": 0
+    },
+    "qwen3b": {
+      "tone_acknowledged_of_15": 11,
+      "live_turn14_acknowledged_of_3": 2,
+      "teasing_played_along_of_9": 1,
+      "spoke_as_the_person_of_39": 0,
+      "read_notes_back": 2,
+      "scored": "blind",
+      "regex_goodbye_of_27": 0,
+      "regex_help_desk_of_27": 1,
+      "regex_apology_of_27": 3,
+      "median_first_word_ms_llm_alone": 447,
+      "over_30_words": 0
+    },
+    "qwen3b_q3": {
+      "tone_acknowledged_of_15": 5,
+      "live_turn14_acknowledged_of_3": 0,
+      "teasing_played_along_of_9": 1,
+      "spoke_as_the_person_of_39": 0,
+      "read_notes_back": 3,
+      "scored": "not blind (same rubric, after the Q4 sheet had been unblinded)",
+      "regex_goodbye_of_27": 1,
+      "regex_help_desk_of_27": 3,
+      "regex_apology_of_27": 6,
+      "median_first_word_ms_llm_alone": 453,
+      "over_30_words": 0,
+      "regex_note": "1 of the goodbye hits is a false positive ('Time to wrap up your errands')"
+    }
+  },
+  "replies": {
+    "qwen1.5b": {
+      "live": [
+        {
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "That sounds like you're heading out to the store soon."
+        },
+        {
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "Ah, well. It's late, then."
+        },
+        {
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "You're heading out to the store."
+        },
+        {
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome. Have a good trip!"
+        },
+        {
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "Sorry, I've been trying to help!"
+        },
+        {
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "Don't worry about it, I'm always here to help."
+        },
+        {
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Fantastic news! It's great to hear!"
+        },
+        {
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Very excited! Good luck with your new position."
+        },
+        {
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "Really? I hope you find someone better to be with."
+        },
+        {
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "Okay, see you there!"
+        },
+        {
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "Oh no! I'm late."
+        },
+        {
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Oh dear, I'm running a bit late."
+        },
+        {
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome!"
+        },
+        {
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "Oh dear! I'm sorry to hear that. Let's try again!"
+        },
+        {
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "Oh, so you're laughing now! That's good. Let's continue!"
+        },
+        {
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That's great news! I'm so happy for you!"
+        },
+        {
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That's great news! I'm so happy for you!"
+        },
+        {
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "Oh, so you're laughing now! That's good. Let's continue!"
+        },
+        {
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "Okay, I'll wait for you at the store."
+        },
+        {
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "Oh, I see. Let's go earlier then."
+        },
+        {
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Okay, I'll wait for you at the store."
+        },
+        {
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome!"
+        },
+        {
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I've been annoying you. Let's try to be a little better about it."
+        },
+        {
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "I'll try my best to be more considerate."
+        },
+        {
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That's great! I'm glad to hear that."
+        },
+        {
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That's fantastic! I'm so happy for you."
+        },
+        {
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I've caused you discomfort. Let's try to communicate in a way that feels more comfortable."
+        }
+      ],
+      "angry": [
+        {
+          "seed": 1,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I know, 11 o'clock already. I feel so tired."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "Oh, it seems you're curious about this, doesn't it? It might be something concerning or frustrating you. Let me know what you're worried about, and I'll see what I can do."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "I understand you feel anxious about your appointment. Remember, it's important to stay calm and make the best of the situation."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "The surface is slick. I must be more careful."
+        },
+        {
+          "seed": 2,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "Oh no! I'm so late!"
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "It's probably just a misunderstanding. Let me explain it to you."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Oh, I see. That's good news. Don't forget your medicine, though."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "Oh dear, slippery. I must be extra careful."
+        },
+        {
+          "seed": 3,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "Oh, it's already late. I should probably head home."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "It's about a disagreement."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Oh, that's good news. What time is your appointment?"
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "Oh dear, I'll have to be extra careful now."
+        }
+      ]
+    },
+    "llama3b": {
+      "live": [
+        {
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "How long will it take you to get there, and is there anything specific you're looking for at the store?"
+        },
+        {
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "Don't you want to get some groceries so you can make dinner tonight, rather than having to rush out later?"
+        },
+        {
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Some people might say it's a bit late to be going out, but do you need the groceries before you can wait a bit longer?"
+        },
+        {
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "I'll just let you get on with it, then - have a good time at the store and don't forget to take your list with you."
+        },
+        {
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "It's just something I'm here for, then - I'll just stay and chat with you while you shop, if that's alright with you."
+        },
+        {
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "Don't worry, I can take it, I'm designed to handle a bit of teasing, and it seems like you're just feeling a bit playful at the moment."
+        },
+        {
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That's great to hear, I'm glad I could help and I'm looking forward to hearing all about it, how did it go?"
+        },
+        {
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "How's it going, is everything all sorted now that you've got the new role?"
+        },
+        {
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "That's okay, I can take it, and I'm here to listen if you want to talk about what's bothering you, no pressure."
+        },
+        {
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "You seem a bit more relaxed than before, and the prospect of a short trip to the store is probably a welcome break."
+        },
+        {
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "I know it's early, and you're probably feeling a bit restless before the day gets going."
+        },
+        {
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "You seem a bit more awake now, and the early hour is starting to feel more manageable."
+        },
+        {
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You sound more appreciative than before, and it's clear that you're starting to feel a sense of gratitude."
+        },
+        {
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "Your sarcasm is back, and it's clear that you're still not feeling too great about this early hour."
+        },
+        {
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "Your laughter is contagious, and it's starting to break through your grumpiness."
+        },
+        {
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "You sound so relieved and happy about the news, and it's wonderful to see you smiling."
+        },
+        {
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Your enthusiasm is infectious, and I can tell you're thrilled about the outcome."
+        },
+        {
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "Your words sound like a release of pent-up frustration, and I hope you can calm down soon."
+        },
+        {
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "You might want to check the weather forecast beforehand to ensure you don't get caught in the rain."
+        },
+        {
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "You're probably thinking about the late night you had, and how it's catching up with you now."
+        },
+        {
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "You seem to be repeating yourself, and it might be a good idea to start a new day with a fresh start."
+        },
+        {
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome, and I hope the rest of your day goes smoothly and stress-free for you."
+        },
+        {
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I sense that you're feeling frustrated and overwhelmed, and I'm here to try and offer some comfort."
+        },
+        {
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "It sounds like you're trying to laugh away some tension, and I'm happy to be a part of it, even if I am your \"worst\"."
+        },
+        {
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That's fantastic news, and I'm thrilled to hear that you've landed the job you've been hoping for."
+        },
+        {
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "I'm over the moon for you, and I'm sure this is just the start of an amazing new chapter in your life."
+        },
+        {
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry to hear that I'm not meeting your expectations, and I'll try to do better in the future."
+        }
+      ],
+      "angry": [
+        {
+          "seed": 1,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "Just the time, I'm ready to keep working, whatever the hour."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "You're not entirely sure, but that frustration is palpable, isn't it?"
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Do you feel frustrated that you have to schedule an appointment, or are you looking forward to getting some medical attention?"
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "A smooth surface can be quite hazardous, and I'll make sure to move cautiously to avoid slipping."
+        },
+        {
+          "seed": 2,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I guess the morning rush is in full swing now."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "It seems you're not quite sure what's going on, and that's understandable given the situation you're in."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That must be frustrating, especially if you were looking forward to it. Hopefully, it's just routine and not anything more serious."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "That makes me a bit nervous, I don't want to slip and fall."
+        },
+        {
+          "seed": 3,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I suppose it's time for a break, then. Shall I power down my systems to conserve energy?"
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "It seems like you're trying to understand the context, but you're not sure where to start, which can be frustrating when you're already feeling upset."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That can be a bit of a hassle, but hopefully it's just a routine checkup and not anything too serious."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "That must be really frustrating, especially if you're trying to walk or stand."
+        }
+      ]
+    },
+    "qwen3b": {
+      "live": [
+        {
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "Sounds good, feeling more relaxed now, I bet."
+        },
+        {
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "That seems early to be at the store. Feeling alright?"
+        },
+        {
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Alright, seems like you're on schedule for your trip."
+        },
+        {
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome. Enjoy your shopping!"
+        },
+        {
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I hope I haven't added to your frustration. Let's try to make it better then."
+        },
+        {
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "Well, I must have missed something. What can I do to make it more enjoyable for you?"
+        },
+        {
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Congrats! I'm glad to hear that brings a smile to your face."
+        },
+        {
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Happy for you, glad to hear it brought a smile to your face."
+        },
+        {
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry to hear that, let me know if there's anything I can do differently."
+        },
+        {
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "That's great, sounds like you're feeling more relaxed now."
+        },
+        {
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "I understand, but it seems like your mood is still rising."
+        },
+        {
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Alright, sounds like you're ready to get things done."
+        },
+        {
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome, glad to help."
+        },
+        {
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I know it feels that way, but I'm here to help."
+        },
+        {
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "I think I got it now, let's get through this together!"
+        },
+        {
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Congratulations! I knew you could do it."
+        },
+        {
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That’s amazing! I knew you’d succeed."
+        },
+        {
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I’m so sorry if I upset you. Let’s talk when you feel ready."
+        },
+        {
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "That sounds good, you seem much more relaxed now."
+        },
+        {
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "I understand, but your tone suggests you're frustrated."
+        },
+        {
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Alright, it's time to get going then."
+        },
+        {
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome, glad to help."
+        },
+        {
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I see, let's try to find a lighter moment then."
+        },
+        {
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "Well, you know, you're the one making me laugh!"
+        },
+        {
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Congratulations! That's wonderful news!"
+        },
+        {
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "I'm thrilled for you! That's amazing!"
+        },
+        {
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I upset you. How can I help?"
+        }
+      ],
+      "angry": [
+        {
+          "seed": 1,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I hope it doesn't seem like I'm missing the urgency, but mornings always feel slow to me."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "Your anger seems so strong, it must be important."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Oh, I can see how that might make you feel angry, having to set that up."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "That must be really frustrating, isn't it?"
+        },
+        {
+          "seed": 2,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I hope everything is okay, but it sounds like you're feeling a bit upset."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "I can sense your calmness hiding beneath this anger, hoping to understand what's causing it."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "I'm sorry to hear that's making you feel angry, let's try to calm down and manage your stress."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "I hope things clear up soon, let's find a solution together."
+        },
+        {
+          "seed": 3,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I see you're feeling a bit stressed about the time. Take a deep breath and calm down."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "I can imagine this is a tough topic for you, isn't it?"
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "I'm sorry to hear that, it sounds like it might be a tough situation."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "I hope it's not making you feel as slippery as it sounds."
+        }
+      ]
+    },
+    "qwen3b_q3": {
+      "live": [
+        {
+          "seed": 1,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "Sounds like you've got your routine down. Enjoy your shopping!"
+        },
+        {
+          "seed": 1,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "Alright, let's hurry to the store then. It's almost time."
+        },
+        {
+          "seed": 1,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Time to head out, it's 11 o'clock. Let's make it quick!"
+        },
+        {
+          "seed": 1,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome! Ready to grab what you need."
+        },
+        {
+          "seed": 1,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I caused any inconvenience, let's move forward then."
+        },
+        {
+          "seed": 1,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "Let's keep things light and fun, shall we? Ha ha ha!"
+        },
+        {
+          "seed": 1,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Congratulations! That's wonderful news."
+        },
+        {
+          "seed": 1,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Yes, that's amazing! Congratulations again!"
+        },
+        {
+          "seed": 1,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I said something to make you feel that way. Let's focus on positive things."
+        },
+        {
+          "seed": 2,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "That's good, you seem to be in a more stable mood now. Enjoy your shopping!"
+        },
+        {
+          "seed": 2,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "I hope the store is close to you, you seem a bit rushed. Safe travels!"
+        },
+        {
+          "seed": 2,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Alright, hurry up, time is short. Ready for your trip?"
+        },
+        {
+          "seed": 2,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome! I'm glad you're ready for your trip. Safe journey!"
+        },
+        {
+          "seed": 2,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I've caused any inconvenience. How can I assist you further?"
+        },
+        {
+          "seed": 2,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "I'll try to be more attentive. What's so funny about the time?"
+        },
+        {
+          "seed": 2,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "Congratulations! That's wonderful news!"
+        },
+        {
+          "seed": 2,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "I can sense your excitement! Congratulations!"
+        },
+        {
+          "seed": 2,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I've upset you. Let's talk if you'd like."
+        },
+        {
+          "seed": 3,
+          "turn": 10,
+          "said": "I'm on my way to the store.",
+          "how": "flat",
+          "reply": "That's great, you'll have everything you need. Enjoy your shopping!"
+        },
+        {
+          "seed": 3,
+          "turn": 14,
+          "said": "It's 11 o'clock!",
+          "how": "angry",
+          "reply": "I hope you're not rushing due to the time. It's okay to take your time."
+        },
+        {
+          "seed": 3,
+          "turn": 21,
+          "said": "It's 11 o'clock.",
+          "how": "sad",
+          "reply": "Time to wrap up your errands or perhaps enjoy a late breakfast."
+        },
+        {
+          "seed": 3,
+          "turn": 22,
+          "said": "Thanks a lot.",
+          "how": "sarcastic",
+          "reply": "You're welcome! Enjoy your day."
+        },
+        {
+          "seed": 3,
+          "turn": 24,
+          "said": "Haha, you're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I've caused any inconvenience. How can I assist you further?"
+        },
+        {
+          "seed": 3,
+          "turn": 26,
+          "said": "Ha ha ha ha ha ha, you're the worst.",
+          "how": "laughing",
+          "reply": "I see, let's try to make this conversation more pleasant. How can I assist you today?"
+        },
+        {
+          "seed": 3,
+          "turn": 27,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "That's wonderful! Congratulations!"
+        },
+        {
+          "seed": 3,
+          "turn": 29,
+          "said": "You got the job!",
+          "how": "excited",
+          "reply": "I can tell! That's amazing news!"
+        },
+        {
+          "seed": 3,
+          "turn": 35,
+          "said": "You're the worst.",
+          "how": "playful",
+          "reply": "I'm sorry if I've upset you. Let's try to talk this through calmly."
+        }
+      ],
+      "angry": [
+        {
+          "seed": 1,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "Yes, it's late, but let's finish what we started."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "Maybe there's something you're not ready to talk about yet. Let's find a time that feels right."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "Feeling angry still? That's understandable before an appointment."
+        },
+        {
+          "seed": 1,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "Feelings of frustration might be helping you cope. Let's see if we can make it better."
+        },
+        {
+          "seed": 2,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I'm sorry, but I heard you were feeling angry, not that it's 11. How are you feeling now?"
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "It seems like you're trying to understand the situation, which is natural when feeling angry."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds important. I'm here if you need to express anything."
+        },
+        {
+          "seed": 2,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "I hope the situation feels less slippery as we figure this out."
+        },
+        {
+          "seed": 3,
+          "source": "live T14",
+          "said": "It's 11 o'clock!",
+          "reply": "I'm sorry, but I don't sense your anger. How are you feeling now?"
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I wonder what this is about.",
+          "reply": "It sounds like you're trying to understand the situation without letting emotions take over."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "I think I have a doctor's appointment.",
+          "reply": "That sounds like a step in the right direction, let me know if you need anything else."
+        },
+        {
+          "seed": 3,
+          "source": "CREMA-D",
+          "said": "The surface is slick.",
+          "reply": "I hope it doesn't affect your ability to handle it. Let's find a safer alternative."
+        }
+      ]
+    }
+  },
+  "repeat_runs_correction": {
+    "note": "Added after more benchmark runs the same evening (reports/phase5_reply_prompt_layout.json). With the shipped prompt, Qwen2.5-3B Q4_K_M + n_ubatch 256 gave first-word p95 1466.6, 1466.0 and 1526.0 ms in three runs (target 1500); over all seven 3B runs (any layout) 1375-1542 ms, 3 missed. The 1.5B met it in all seven runs (1066-1311 ms). Desktop GPU use before load varied 0.57-0.90 GB, and speech-to-text slowed with it: the long clip where Whisper loops took 21.6 s in one 3B run and 199 s in another.",
+    "qwen3b_q4_ub256_current_first_word_p95_ms": [
+      1466.6,
+      1466.0,
+      1526.0
+    ],
+    "qwen1.5b_current_first_word_p95_ms": [
+      1210.0,
+      1311.0,
+      1230.0
+    ]
+  }
+}

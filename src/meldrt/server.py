@@ -76,6 +76,11 @@ async def ws(socket: WebSocket) -> None:
                 except (ValueError, KeyError) as e:
                     await socket.send_json({"type": "error", "message": str(e)})
                     continue
+                except OSError:  # no MELD download: the microphone still works without it
+                    await socket.send_json({"type": "error", "message": (
+                        f"MELD data not found under {CFG['paths']['meld_root']}. Replaying MELD lines needs "
+                        "the MELD download (README, Data); the microphone works without it.")})
+                    continue
                 lines = [{"clip_id": r.clip_id, "speaker": r.speaker, "emotion": r.emotion, "text": r.text}
                          for r in rows.itertuples()]
                 info = {"source": f"MELD {msg['split']} dialogue {msg['dialogue']}", "lines": lines}

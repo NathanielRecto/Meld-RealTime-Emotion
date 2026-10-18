@@ -1,0 +1,392 @@
+{
+  "rated_sheet": "phase4_reply_sheet.md",
+  "all": {
+    "with_notes_better": 14,
+    "without_notes_better": 18,
+    "same": 3,
+    "n": 35,
+    "sign_test_p": 0.597
+  },
+  "emotion_predicted_right": {
+    "with_notes_better": 6,
+    "without_notes_better": 8,
+    "same": 1,
+    "n": 15,
+    "sign_test_p": 0.791
+  },
+  "emotion_predicted_wrong": {
+    "with_notes_better": 8,
+    "without_notes_better": 10,
+    "same": 2,
+    "n": 20,
+    "sign_test_p": 0.815
+  },
+  "by_gold_emotion": {
+    "anger": {
+      "with_notes_better": 2,
+      "without_notes_better": 2,
+      "same": 1,
+      "n": 5,
+      "sign_test_p": 1.0
+    },
+    "disgust": {
+      "with_notes_better": 4,
+      "without_notes_better": 1,
+      "same": 0,
+      "n": 5,
+      "sign_test_p": 0.375
+    },
+    "fear": {
+      "with_notes_better": 1,
+      "without_notes_better": 2,
+      "same": 2,
+      "n": 5,
+      "sign_test_p": 1.0
+    },
+    "joy": {
+      "with_notes_better": 1,
+      "without_notes_better": 4,
+      "same": 0,
+      "n": 5,
+      "sign_test_p": 0.375
+    },
+    "neutral": {
+      "with_notes_better": 2,
+      "without_notes_better": 3,
+      "same": 0,
+      "n": 5,
+      "sign_test_p": 1.0
+    },
+    "sadness": {
+      "with_notes_better": 2,
+      "without_notes_better": 3,
+      "same": 0,
+      "n": 5,
+      "sign_test_p": 1.0
+    },
+    "surprise": {
+      "with_notes_better": 2,
+      "without_notes_better": 3,
+      "same": 0,
+      "n": 5,
+      "sign_test_p": 1.0
+    }
+  },
+  "lines": [
+    {
+      "line": 1,
+      "clip_id": "dia211_utt2",
+      "gold": "anger",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "with_notes"
+    },
+    {
+      "line": 2,
+      "clip_id": "dia59_utt2",
+      "gold": "anger",
+      "predicted": "surprise",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 3,
+      "clip_id": "dia240_utt0",
+      "gold": "anger",
+      "predicted": "anger",
+      "emotion_right": true,
+      "rating": "=",
+      "winner": "same"
+    },
+    {
+      "line": 4,
+      "clip_id": "dia65_utt9",
+      "gold": "anger",
+      "predicted": "joy",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 5,
+      "clip_id": "dia103_utt4",
+      "gold": "anger",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 6,
+      "clip_id": "dia70_utt10",
+      "gold": "disgust",
+      "predicted": "disgust",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 7,
+      "clip_id": "dia17_utt3",
+      "gold": "disgust",
+      "predicted": "disgust",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "without_notes"
+    },
+    {
+      "line": 8,
+      "clip_id": "dia163_utt1",
+      "gold": "disgust",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 9,
+      "clip_id": "dia115_utt3",
+      "gold": "disgust",
+      "predicted": "anger",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 10,
+      "clip_id": "dia123_utt13",
+      "gold": "disgust",
+      "predicted": "disgust",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 11,
+      "clip_id": "dia95_utt17",
+      "gold": "fear",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "=",
+      "winner": "same"
+    },
+    {
+      "line": 12,
+      "clip_id": "dia99_utt9",
+      "gold": "fear",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "=",
+      "winner": "same"
+    },
+    {
+      "line": 13,
+      "clip_id": "dia117_utt5",
+      "gold": "fear",
+      "predicted": "anger",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "without_notes"
+    },
+    {
+      "line": 14,
+      "clip_id": "dia195_utt0",
+      "gold": "fear",
+      "predicted": "fear",
+      "emotion_right": true,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 15,
+      "clip_id": "dia223_utt3",
+      "gold": "fear",
+      "predicted": "joy",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 16,
+      "clip_id": "dia30_utt2",
+      "gold": "joy",
+      "predicted": "surprise",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 17,
+      "clip_id": "dia154_utt2",
+      "gold": "joy",
+      "predicted": "joy",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "without_notes"
+    },
+    {
+      "line": 18,
+      "clip_id": "dia233_utt5",
+      "gold": "joy",
+      "predicted": "joy",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 19,
+      "clip_id": "dia48_utt3",
+      "gold": "joy",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 20,
+      "clip_id": "dia126_utt2",
+      "gold": "joy",
+      "predicted": "joy",
+      "emotion_right": true,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 21,
+      "clip_id": "dia14_utt8",
+      "gold": "neutral",
+      "predicted": "neutral",
+      "emotion_right": true,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 22,
+      "clip_id": "dia226_utt2",
+      "gold": "neutral",
+      "predicted": "neutral",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "without_notes"
+    },
+    {
+      "line": 23,
+      "clip_id": "dia242_utt5",
+      "gold": "neutral",
+      "predicted": "fear",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 24,
+      "clip_id": "dia193_utt3",
+      "gold": "neutral",
+      "predicted": "neutral",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 25,
+      "clip_id": "dia168_utt0",
+      "gold": "neutral",
+      "predicted": "neutral",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 26,
+      "clip_id": "dia33_utt0",
+      "gold": "sadness",
+      "predicted": "joy",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 27,
+      "clip_id": "dia263_utt5",
+      "gold": "sadness",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "without_notes"
+    },
+    {
+      "line": 28,
+      "clip_id": "dia83_utt7",
+      "gold": "sadness",
+      "predicted": "sadness",
+      "emotion_right": true,
+      "rating": "B",
+      "winner": "with_notes"
+    },
+    {
+      "line": 29,
+      "clip_id": "dia107_utt3",
+      "gold": "sadness",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 30,
+      "clip_id": "dia33_utt6",
+      "gold": "sadness",
+      "predicted": "fear",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 31,
+      "clip_id": "dia169_utt21",
+      "gold": "surprise",
+      "predicted": "surprise",
+      "emotion_right": true,
+      "rating": "A",
+      "winner": "without_notes"
+    },
+    {
+      "line": 32,
+      "clip_id": "dia169_utt5",
+      "gold": "surprise",
+      "predicted": "anger",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 33,
+      "clip_id": "dia34_utt3",
+      "gold": "surprise",
+      "predicted": "surprise",
+      "emotion_right": true,
+      "rating": "B",
+      "winner": "without_notes"
+    },
+    {
+      "line": 34,
+      "clip_id": "dia19_utt0",
+      "gold": "surprise",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "A",
+      "winner": "with_notes"
+    },
+    {
+      "line": 35,
+      "clip_id": "dia222_utt10",
+      "gold": "surprise",
+      "predicted": "neutral",
+      "emotion_right": false,
+      "rating": "B",
+      "winner": "with_notes"
+    }
+  ]
+}

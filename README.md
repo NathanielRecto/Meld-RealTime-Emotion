@@ -26,6 +26,12 @@ turns (3 fine-tuned RoBERTa fusion models, averaged) → a short reply streamed 
 (llama.cpp). The design doc explains the decisions, the definition of "real-time", what was tried
 and didn't work, and the limitations.
 
+One live microphone turn in the web demo: "It's 11 o'clock!" said angrily. The words alone read as
+joy, but the voice is angry, so the final tag is **anger**, and the page flags that words and voice
+disagree. The voice tag arrived 36 ms after the turn ended and the final tag 462 ms after.
+
+![Web demo: a live turn where an angry voice outweighs the words](docs/img/live_turn14.png)
+
 ## Setup (Windows, NVIDIA GPU)
 
 1. Create and activate a virtual environment. Use Python 3.10–3.12, the versions with prebuilt
@@ -50,6 +56,21 @@ and didn't work, and the limitations.
    python scripts/smoke_test.py
    ```
    Results are written to `reports/phase0_smoke.json`.
+
+## Quick start: run the demo without any training
+
+The trained emotion models are published with the GitHub release
+[`weights-v1`](https://github.com/NathanielRecto/Meld-RealTime-Emotion/releases/tag/weights-v1),
+so the live demo needs neither MELD nor CREMA-D. After the setup above:
+
+```powershell
+python scripts/download_weights.py   # 3 files, about 1.5 GB, each checked against its SHA-256
+python scripts/serve.py              # then open http://127.0.0.1:8000 and click Start microphone
+```
+
+To follow one recording of your own (16 kHz mono WAV) through every stage in the terminal:
+`python scripts/trace.py --wav your_clip.wav`. Replaying MELD lines in the web page, and everything
+under Data and Training below, does need the datasets.
 
 ## Data
 
@@ -127,7 +148,7 @@ python scripts/evaluate_tone.py fusion_ctx3_crema_td25 fusion_ctx3_crema_td25_se
 
 ## Run the demo
 
-Needs the three trained fusion models above.
+Needs the three trained fusion models: download them (Quick start) or train them (above).
 
 ```powershell
 python scripts/serve.py      # then open http://127.0.0.1:8000
@@ -150,8 +171,10 @@ python scripts/benchmark_latency.py --turns 150   # latency per stage, GPU memor
 python scripts/reply_check.py --per-class 5       # replies with vs without the emotion notes
 ```
 
-`reports/phase4_reply_sheet.md` is a blind A/B sheet: rate it without looking at the key to judge
-whether the emotion notes make Pip's replies fit better.
+`reports/phase4_reply_sheet.md` is a blind A/B sheet: does a reply written with the emotion notes
+fit how the person felt better than one written without them? Rated blind, no: the reply with the
+notes was better on 14 of 35 lines and worse on 18 (`python scripts/tally_reply_sheet.py`; DESIGN
+section 11).
 
 ## Layout
 
@@ -160,6 +183,7 @@ configs/default.yaml        model names, paths, real-time targets
 docs/DESIGN.md              decisions, assumptions, evidence
 reports/                    measured results (JSON) and the reply rating sheet
 scripts/smoke_test.py       Phase 0: do all models fit and run on the GPU together?
+scripts/download_weights.py  the trained emotion models from the GitHub release, checksum-verified
 scripts/prepare_meld.py     Phase 1: extract MELD, convert audio, build the tables
 scripts/prepare_crema.py    Phase 5: CREMA-D clips for voice training and the tone test
 scripts/extract_wavlm.py    Phase 2: precompute frozen WavLM features (MELD or CREMA-D)
