@@ -1,0 +1,84 @@
+{
+  "timestamp": "2026-10-17T15:06:01",
+  "hardware": {
+    "gpu": "NVIDIA GeForce GTX 1660 SUPER",
+    "gpu_vram_mb": 6144,
+    "cpu_threads": 8,
+    "ram_gb": 15.9,
+    "os": "Windows-10-10.0.19045-SP0"
+  },
+  "emotion_models": [
+    "fusion_ctx3",
+    "fusion_ctx3_seed43",
+    "fusion_ctx3_seed44"
+  ],
+  "turns": 158,
+  "dialogues": 16,
+  "ignored_no_words": 3,
+  "note": "times count from the end of the turn; the turn detector first waits 400 ms of silence to decide the turn is over",
+  "latency_ms": {
+    "voice_tag": {
+      "p50": 28.5,
+      "p95": 66.9,
+      "max": 106.4
+    },
+    "asr_done": {
+      "p50": 524.2,
+      "p95": 875.2,
+      "max": 13021.3
+    },
+    "final_tag": {
+      "p50": 562.9,
+      "p95": 935.0,
+      "max": 13089.9
+    },
+    "first_token": {
+      "p50": 814.3,
+      "p95": 1330.9,
+      "max": 13392.3
+    },
+    "reply_done": {
+      "p50": 1101.9,
+      "p95": 1617.7,
+      "max": 13601.4
+    }
+  },
+  "targets": {
+    "voice_tag": {
+      "target_ms": 500,
+      "p95_ms": 66.9,
+      "met": true
+    },
+    "final_tag": {
+      "target_ms": 1000,
+      "p95_ms": 935.0,
+      "met": true
+    },
+    "first_token": {
+      "target_ms": 1500,
+      "p95_ms": 1330.9,
+      "met": true
+    },
+    "reply_done": {
+      "target_ms": 3000,
+      "p95_ms": 1617.7,
+      "met": true
+    }
+  },
+  "vad_ms_per_32ms_chunk": 0.911,
+  "model_load_s": 23.2,
+  "gpu_memory_mb": {
+    "before_load": 844,
+    "after_load": 5070,
+    "peak": 5440
+  },
+  "process_ram_mb": 2729,
+  "params": {
+    "turn_detector (Silero VAD)": 462594,
+    "speech_to_text (Whisper small)": 241734912,
+    "voice_encoder (WavLM base+)": 94381936,
+    "emotion_models (3 x RoBERTa + heads)": 373761126,
+    "reply_model (Qwen2.5-1.5B)": 1543714304,
+    "total": 2254054872
+  }
+}

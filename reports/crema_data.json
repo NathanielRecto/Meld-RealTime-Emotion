@@ -1,0 +1,90 @@
+{
+  "source": "CREMA-D (github.com/CheyneyComputerScience/CREMA-D), ODbL 1.0 / DbCL 1.0",
+  "clips_total": 7442,
+  "kept_rule": "listeners' voice-only majority vote == intended emotion",
+  "held_out_sentences": {
+    "ITH": "I think I have a doctor's appointment.",
+    "IWW": "I wonder what this is about.",
+    "MTI": "Maybe tomorrow it will be cold.",
+    "TSI": "The surface is slick."
+  },
+  "seed": 0,
+  "splits": {
+    "train": {
+      "clips": 1260,
+      "audio_ok": 1260,
+      "actors": 54,
+      "actors_by_sex": {
+        "Female": 25,
+        "Male": 29
+      },
+      "sentences": [
+        "DFA",
+        "IEO",
+        "IOM",
+        "ITS",
+        "IWL",
+        "TAI",
+        "TIE",
+        "WSI"
+      ],
+      "emotions": {
+        "neutral": 414,
+        "anger": 353,
+        "joy": 141,
+        "disgust": 139,
+        "fear": 136,
+        "sadness": 77
+      },
+      "seconds_median": 2.44
+    },
+    "dev": {
+      "clips": 121,
+      "audio_ok": 121,
+      "actors": 12,
+      "actors_by_sex": {
+        "Female": 6,
+        "Male": 6
+      },
+      "sentences": [
+        "ITH",
+        "IWW",
+        "MTI",
+        "TSI"
+      ],
+      "emotions": {
+        "neutral": 42,
+        "anger": 26,
+        "fear": 19,
+        "disgust": 15,
+        "sadness": 10,
+        "joy": 9
+      },
+      "seconds_median": 2.6
+    },
+    "test": {
+      "clips": 226,
+      "audio_ok": 226,
+      "actors": 25,
+      "actors_by_sex": {
+        "Female": 12,
+        "Male": 13
+      },
+      "sentences": [
+        "ITH",
+        "IWW",
+        "MTI",
+        "TSI"
+      ],
+      "emotions": {
+        "neutral": 96,
+        "anger": 42,
+        "fear": 42,
+        "joy": 17,
+        "disgust": 16,
+        "sadness": 13
+      },
+      "seconds_median": 2.55
+    }
+  }
+}

@@ -1,6 +1,7 @@
 # Paths and model choices for the whole pipeline. Swap a model here, not in code.
 paths:
   meld_root: G:/datasets/MELD          # raw MELD download + extracted clips (outside the repo)
+  crema_root: G:/datasets/CREMA-D      # CREMA-D clone (repo/) + manifests and features (scripts/prepare_crema.py)
   reports_dir: reports
 
 models:
@@ -17,8 +18,8 @@ models:
   audio_encoder:
     name: microsoft/wavlm-base-plus
     dtype: float32                     # float16 gives NaN on the GTX 1660 SUPER (and is slower)
-  emotion:
-    run: fusion_ctx3                   # Phase 2 run used live: checkpoints/<run>/model.pt
+  emotion:                             # Phase 2 fusion runs used live; their probabilities are averaged
+    runs: [fusion_ctx3_crema_td25, fusion_ctx3_crema_td25_seed43, fusion_ctx3_crema_td25_seed44]  # 3 seeds (DESIGN section 12)
   llm:                                 # llama.cpp: ~7x faster than transformers here
     gguf_repo: Qwen/Qwen2.5-1.5B-Instruct-GGUF
     gguf_file: qwen2.5-1.5b-instruct-q4_k_m.gguf
@@ -29,8 +30,9 @@ realtime:                              # targets defined in docs/DESIGN.md secti
   sample_rate: 16000
   chunk_samples: 512                   # 32 ms streaming unit
   end_of_turn_silence_ms: 400
-  budget_ms:                           # p95, measured from end-of-turn detection
-    emotion_tag: 500
+  budget_ms:                           # p95, measured from end-of-turn detection (DESIGN section 2)
+    voice_tag: 500                     # stage 1: emotion from the voice alone
+    final_tag: 1000                    # stage 2: words + voice + context
     first_token: 1500
     full_reply: 3000
   max_reply_words: 30

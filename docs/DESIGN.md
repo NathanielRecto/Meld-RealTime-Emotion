@@ -100,10 +100,12 @@ does not change its count. Measured values come from `scripts/smoke_test.py` (se
 | Text encoder | RoBERTa-base, fine-tuned, without the unused pooler | 124.1M |
 | Audio encoder | WavLM-base-plus (frozen) | 94.4M |
 | Emotion heads | fusion + per-modality heads + WavLM layer weighting (Phase 2) | 0.5M |
+| *Phase 4 ensemble* | *the live system runs 3 seeds of RoBERTa + heads (section 11)* | *373.8M in total* |
 | Reply LLM | Qwen2.5-1.5B-Instruct, 4-bit GGUF via llama.cpp | 1.54B |
 | **Total** | | **2.00B of 6B** |
 
 Headroom: a 3B reply model would bring the total to about 3.5B, if reply quality needs it.
+With the Phase 4 ensemble the measured total is **2.25B** (`reports/phase4_latency.json`).
 
 ## 5. Hardware
 
@@ -440,7 +442,289 @@ done 1.5–2.3 s. Clean numbers on an idle GPU come in Phase 4.
   person talking to the robot.
 - The microphone path is implemented but hasn't been tested with live speech yet.
 
-## 11. Decision log
+## 11. Phase 4: evidence
+
+### Two last accuracy experiments (2026-10-17)
+
+Section 9 left the live system at about 0.54 weighted F1 on Whisper text, with every comparison
+so far inside an unknown noise band. Two cheap experiments, both scored with
+`scripts/evaluate.py` on dev and test with Whisper text unless noted:
+
+- **A. Mixed-text training** (`--text-source mixed`). Every training line is used twice, once as
+  MELD typed it and once as Whisper heard it. Unlike Whisper-only training (section 9), the model
+  keeps the clean text to learn word meanings from.
+- **B. Three seeds of the live recipe** (`fusion_ctx3` with seeds 42, 43 and 44). This measures
+  run-to-run noise, and averaging the three gives an ensemble.
+
+| Model | Dev W-F1 | Dev macro F1 | Test W-F1 | Test macro F1 | Test accuracy |
+|---|---|---|---|---|---|
+| `fusion_ctx3` (seed 42, the previous live model) | 0.519 | 0.415 | 0.536 | 0.389 | 54.8% |
+| seed 43 / seed 44 | 0.530 / 0.530 | – | 0.529 / 0.528 | 0.373 / 0.374 | 54.2% / 53.5% |
+| **3-seed average (`fusion_x3`)** | 0.531 | **0.422** | **0.538** | **0.390** | **55.0%** |
+| A. mixed text (`fusion_ctx3_mixed`) | **0.534** | 0.391 | 0.531 | 0.354 | 55.0% |
+
+On MELD's typed text, the same three seeds score 0.631 / 0.637 / 0.642 on test, and the ensemble
+**0.648** (macro F1 0.500, accuracy 64.6%), the best result of the project.
+
+What this shows:
+1. **Run-to-run noise is now measured.** Single seeds of the same recipe differ by a standard
+   deviation of **0.004** in test weighted F1 on Whisper text and **0.006** on MELD text. Earlier
+   differences under about 1 point were indeed noise.
+2. **The ensemble beats every single seed on both text sources** (+0.7 over the seeds' mean on
+   Whisper text, +1.1 on MELD text), and it has the best dev macro F1.
+3. **Mixed-text training ties the ensemble on dev weighted F1** (0.534 vs 0.531, inside the noise)
+   **but is clearly worse on dev macro F1** (0.391 vs 0.422), so it handles the rare emotions worse.
+
+**Decision: the live system uses the 3-seed ensemble** (`configs/default.yaml`,
+`models.emotion.runs`). The decision is based on dev only: weighted F1 is tied, and macro F1 is
+clearly better. Each turn runs the three models and averages their probabilities. That costs about
++250M parameters (still far under 6B) and a few tens of milliseconds on the final tag (measured
+below).
+
+### Latency and resources on an idle GPU
+
+`scripts/benchmark_latency.py` (2026-10-17) played 158 real test turns from 16 whole dialogues,
+turn by turn, through `Pipeline.process_turn` with the 3-seed live model, so the conversation
+memory and context grew as they would live. Full numbers: `reports/phase4_latency.json`.
+
+| Stage, timed from the end of the turn | p50 | p95 | Max | Target (p95) |
+|---|---|---|---|---|
+| Voice tag | 28 ms | 67 ms | 106 ms | ≤ 500 ms ✅ |
+| Words (speech-to-text done) | 524 ms | 875 ms | 13.0 s | – |
+| Final tag | 563 ms | 935 ms | 13.1 s | ≤ 1,000 ms ✅ |
+| First reply word | 814 ms | 1,331 ms | 13.4 s | ≤ 1,500 ms ✅ |
+| Full reply | 1,102 ms | 1,618 ms | 13.6 s | ≤ 3,000 ms ✅ |
+
+- **All four targets are met at p95.** The final tag has the least room (935 vs 1,000 ms).
+- **The 13 s maximum is a single turn where Whisper looped on a long clip.** The 15 s turn cap
+  bounds it, but a shorter time limit on speech-to-text would be safer live.
+- **Before any of these timings start, the turn detector waits 400 ms of silence** to decide the
+  turn is over. Its own compute is 0.9 ms per 32 ms of audio, under 3% of real time.
+- **3 of the 158 turns had no recognisable words** and got no reply.
+
+| Resource | Measured |
+|---|---|
+| Parameters | **2.25B of 6B:** Silero VAD 0.5M, Whisper small 241.7M, WavLM 94.4M, 3 × (RoBERTa + heads) 373.8M, Qwen2.5-1.5B 1,543.7M |
+| GPU memory | 5.4 GB peak of 6.1 GB, including 0.8 GB already used by Windows before loading |
+| RAM | 2.7 GB |
+| Start-up | 23 s to load and warm up all models |
+
+### Does the emotion state change the replies?
+
+`scripts/reply_check.py` takes 35 test lines (5 per emotion, Whisper transcripts) and answers
+each one twice with the same random seed: once with the plain-language emotion notes, and once
+with notes that say nothing about feelings. Full replies are in `reports/phase4_replies.json`,
+and a blind A/B sheet is in `reports/phase4_reply_sheet.md`.
+
+The first run exposed a prompt problem in *both* conditions, so the prompt was changed and the
+check re-run. The first run is kept as `reports/phase4_replies_prompt_v1.json`.
+
+| Replies with notes (35) | Prompt v1 | Prompt v2 |
+|---|---|---|
+| Talks about the person in the third person ("It's clear they're surprised") | 12 | **1** |
+| Reads its instructions back ("I'll respond gently") | 6 | **0** |
+
+Prompt v1 handed the reply model `They said: "…"` plus notes written in the third person, and
+the 1.5B model copied that framing. Prompt v2 passes the person's own words as the message and
+keeps the notes in the system prompt.
+
+**Do the notes make replies fit better?** I read the 35 prompt-v2 pairs against MELD's label.
+This wasn't blind: I could see which reply had the notes. The notes were better in 5, worse in 6,
+and made no clear difference in 24.
+- **The replies do change** (33 of 35 differ). The notes help when the emotion is clear and
+  right: a frantic "It won't stop crying!" gets "I'm here now, sweetie. Let's try to calm it down"
+  instead of "I can't tell what you're feeling".
+- **A wrong emotion misleads the reply,** e.g. "You look excited!" to an angry line. The emotion
+  model is wrong on 20 of these 35 lines; the sample has equal numbers of each emotion, so rare,
+  hard emotions are over-represented.
+- **With prompt v1 the notes looked clearly helpful** (12 better, 4 worse). That was mostly
+  because the no-notes replies suffered from the same prompt flaws.
+
+**Conclusion:** the emotion state does steer Pip's replies, but with a 1.5B reply model and the
+current emotion accuracy, a clear benefit isn't shown. Two ways to settle it: the blind sheet,
+rated by someone who can't see which reply had the notes (still to do), and a stronger reply
+model. Qwen2.5-3B would still fit the budget at about 3.8B total.
+
+## 12. Phase 5: making the voice count
+
+### The problem
+
+In the live microphone test the emotion tag followed the **words, not the tone**: a cheerful voice
+saying something harsh was tagged anger. On MELD test (typed text), the Phase 4 3-seed model's
+words head and voice head disagree on half of the lines (1,315 of 2,610). On those lines the final
+tag sides with the words 92% of the time and with the voice 4%. That is what MELD rewards: there,
+the words match the label 52% of the time and the voice 23%, because MELD's labels were given by
+people who heard the words. So MELD can't measure this problem, and training on MELD alone can't
+fix it.
+
+### What changed
+
+1. **A tone test set.** [CREMA-D](https://github.com/CheyneyComputerScience/CREMA-D) has 91 actors
+   reading 12 emotionally flat sentences ("The surface is slick.") in 6 emotions, so the emotion is
+   in the voice only. `scripts/prepare_crema.py` keeps the 3,099 of 7,442 clips where listeners
+   rating the voice alone picked the emotion the actor intended. Most of the rest sound neutral to
+   people (only 26% of "happy" and 16% of "sad" clips are heard that way), and the robot should
+   react to tone a person can hear. Actors are split 54 / 12 / 25 (train / dev / test, balanced by
+   sex), and 4 of the 12 sentences are held out of training entirely. The tone dev set (121 clips)
+   and test set (226 clips) therefore have **new voices and new sentences**. Without the held-out
+   sentences, a model could memorise "these 12 sentences → trust the voice", which wouldn't carry
+   over to live speech. `scripts/evaluate_tone.py` scores the final tag by **balanced accuracy**
+   (the mean recall over the 6 emotions, so the 42% neutral clips don't dominate), and reports
+   recall on the emotional clips and on the neutral ones separately.
+2. **CREMA-D in training** (`train_emotion.py --crema`). The 1,260 training clips are added to
+   MELD's 9,989 lines. They train the fused head and the voice head; the words-only head skips
+   them, because their words carry no emotion. Their audio is never hidden in training, since the
+   label would then be unknowable. Model selection and every MELD score stay on MELD's own dev and
+   test sets.
+3. **Hiding the words in training** (`--text-dropout 0.25`). On a quarter of the examples where
+   the audio is kept, the fused head doesn't see the words, so it can't always lean on them. This
+   mirrors the existing audio dropout (15%).
+4. **The reply rule** (`src/meldrt/reply.py`, `notes()`). Pip's notes now also mention a
+   words-vs-voice mismatch when the voice alone is at least 60% sure of a non-calm emotion, even
+   if the final tag went with the words. The wording depends on the words. Plain words get "Their
+   words are matter-of-fact, but their voice sounds angry." Words with an emotion of their own get
+   the sarcasm note, "…so they may not mean the words literally". The old rule used the sarcasm
+   note for both, which is wrong for "It's eleven o'clock." said angrily. The blind A/B sheet in
+   section 11 was made before this change and is left as it was.
+
+**How the recipe is chosen, fixed before any results.** Three single-seed recipes (seed 42):
+CREMA-D + hidden words, hidden words only, and CREMA-D only. The winner has the best tone-dev
+balanced accuracy among those whose MELD dev weighted F1 is at least 0.613, i.e. no more than 0.01
+below the current recipe's 0.623 at the same seed. If none qualifies, the live model stays as it
+is. The winner then gets seeds 43 and 44, and the 3-seed ensemble is scored once on both test sets.
+
+### Choosing the recipe (seed 42, single runs)
+
+| Recipe | MELD dev W-F1 | MELD test W-F1 | Tone dev bal. acc. | Tone test bal. acc. | Emotional clips caught (test) | Neutral kept neutral (test) |
+|---|---|---|---|---|---|---|
+| Current (`fusion_ctx3`) | 0.623 | 0.631 | 0.131 | 0.127 | 0% | 76% |
+| Hidden words only (`fusion_ctx3_td25`) | 0.627 | 0.630 | 0.131 | 0.127 | 0% | 76% |
+| CREMA-D only (`fusion_ctx3_crema`) | 0.618 | 0.652 | 0.565 | 0.540 | 52% | 88% |
+| **CREMA-D + hidden words** (`fusion_ctx3_crema_td25`) | **0.634** | 0.634 | **0.653** | **0.648** | **64%** | **99%** |
+
+All three pass the MELD guard (dev ≥ 0.613), and **CREMA-D + hidden words** has the best tone-dev
+score, so it was chosen. Test scores are shown for every row, but only dev was used to choose.
+Chance on the tone set is 0.167 (6 emotions).
+
+What this shows:
+1. **The current model never follows the voice when the words are flat.** On the tone test the
+   Phase 4 live ensemble's final tag only says *neutral* or *surprise*: 32 of 42 angry-sounding
+   clips come out neutral, even though its own voice head hears anger in 17 of them. That is the
+   demo complaint, now measured, and it scores *below* chance (0.127).
+2. **Hiding the words alone changes nothing on tone** (0.131, identical to the current model).
+   MELD's labels still follow the words, so the fused head learns to wait for them.
+3. **CREMA-D alone gets most of the way** (0.565), and **both together do best** (0.653). CREMA-D
+   teaches what an emotional voice sounds like, and hiding the words makes the fused head rely on
+   that signal. Together they also keep neutral clips neutral (99% vs 88%).
+4. **MELD doesn't suffer:** dev weighted F1 0.634 vs 0.623, test 0.634 vs 0.631, both within about
+   2 seed standard deviations.
+5. **Joy is the weak spot** (2 of 17 happy-sounding test clips caught; most read as neutral or
+   fear). Only 141 of the CREMA-D training clips are happy ones that listeners also heard as happy.
+
+**On MELD, the fused tag still mostly follows the words.** Where its words head and voice head
+disagree on MELD test, the chosen recipe sides with the voice on 10% of those lines (seed 42 of the
+current recipe: 5%) and with the words on 85% (91%). On those lines MELD's label matches the words
+56% of the time and the voice 20%, so that is still the right call for MELD. The model now follows
+the tone when the words say little, and the words when they carry the emotion.
+
+### The new live model (3 seeds, scored once on test)
+
+Seeds 43 and 44 of the chosen recipe were trained, and the three are averaged as before
+(`configs/default.yaml`, `models.emotion.runs`). Scored with `scripts/evaluate.py` (MELD and
+Whisper text) and `scripts/evaluate_tone.py`:
+
+| | Phase 4 live model (`fusion_x3`) | **Phase 5 live model (`fusion_crema_x3`)** |
+|---|---|---|
+| MELD typed text: dev W-F1 / **test W-F1** | 0.630 / 0.648 | 0.642 / **0.651** |
+| MELD typed text: test macro F1 / accuracy | 0.500 / 64.6% | 0.489 / 65.3% |
+| Whisper text: dev W-F1 / **test W-F1** | 0.531 / 0.538 | 0.533 / **0.557** |
+| Whisper text: test macro F1 / accuracy | 0.390 / 55.0% | 0.405 / 57.1% |
+| Voice tag alone, MELD test W-F1 | 0.473 | 0.465 |
+| **Tone test: final tag, balanced accuracy** | **0.127** | **0.663** |
+| Tone test: emotional clips caught / neutral kept neutral | 0% / 76% | 64% / 95% |
+| Tone test: voice tag alone, balanced accuracy | 0.260 | 0.706 |
+
+Tone test recall by emotion for the new model: anger 88% (37 of 42), disgust 88% (14 of 16),
+sadness 69% (9 of 13), fear 52% (22 of 42), **joy 6% (1 of 17)**, neutral 95%. The old model's
+recall is 0% for every emotion except neutral.
+
+What this shows, and how far to trust it:
+1. **The tone problem is fixed on the tone set** (0.127 → 0.663) **with no loss on MELD**:
+   weighted F1 is level on typed text (0.648 → 0.651) and on Whisper's dev (0.531 → 0.533).
+   Whisper's test rose 0.538 → 0.557, almost 3 seed standard deviations. With dev flat, I read
+   that as "no loss, maybe a small gain" rather than a proven improvement.
+2. **Rare MELD emotions dipped slightly on typed text:** macro F1 0.500 → 0.489, fear 0.29 → 0.24,
+   disgust 0.31 → 0.26. CREMA-D adds many angry, disgusted and fearful clips, which lowers those
+   classes' training weights, and MELD's test only has 50 fear and 68 disgust lines. On Whisper
+   text, macro F1 went *up* (0.390 → 0.405).
+3. **Tone scores vary more between seeds than MELD scores do.** The three seeds score 0.648, 0.592
+   and 0.582 on tone test. Seed 42, the one the recipe was chosen on, was the best of the three,
+   so the 3-seed figure (0.663) is the fair one.
+4. **The tone set is acted studio speech.** Even with unseen actors and sentences it is closer to
+   CREMA-D's training clips than to a person talking to a robot through a laptop microphone. The
+   live microphone check below bears that out.
+5. **Joy in the voice is still mostly missed.** Few CREMA-D clips are heard as happy, and a happy
+   voice is often read as neutral or fear.
+6. **Same size and speed.** The architecture is unchanged (3 × RoBERTa + heads, 2.25B parameters
+   in total), so section 11's latency figures still apply. One end-to-end trace of an unseen
+   angry clip (`reports/trace_1037_IWW_ANG_XX.json`, "I wonder what this is about.") gave voice tag
+   anger 0.90 after 36 ms, and a final tag of anger 0.71 after 497 ms, with the words alone saying
+   neutral.
+
+**Reply rule, measured on MELD test with the new model:** a mismatch note fires on 85 of 2,610
+lines (3.3%). The new "voice is sure" condition accounts for 15 of them (0.6%), and on those the
+voice matches MELD's label 47% of the time and the words 40%. A single seed's voice head is more
+overconfident: it fires on 34 extra lines, with the voice matching on only 26%, mostly "anger" on
+loud TV audio. So averaging the seeds matters here too. `VOICE_SURE` in `reply.py` is the knob if
+the live notes over-flag.
+
+**The reply model is now the weak link for tone.** Same-seed replies to flat sentences in an
+angry voice were compared across three note wordings (the new one, the old sarcasm one, and the
+tag alone). The 1.5B model rarely acknowledges the anger under any of them, and sometimes just
+echoes the line ("The surface is slick. I need to be extra careful."). The emotion state is now
+right on these lines; making Pip act on it needs a stronger reply model (section 15).
+
+### Live microphone check (2026-10-17)
+
+Nine lines were spoken into the web demo (`scripts/serve.py`, laptop microphone, one speaker) with
+the new live model. Words alone and voice alone are the model's two single-modality heads.
+
+| Turn | Said | How | Final tag | Words alone | Voice alone | Right? |
+|---|---|---|---|---|---|---|
+| 14 | "It's 11 o'clock!" | angry | **anger 70%** | joy 37% | anger 52% | ✅ the voice beat the words |
+| 21 | "It's 11 o'clock." | sad | neutral 51% (sadness 25%) | neutral 72% | sadness 27% | ❌ |
+| 10 | "I'm on my way to the store." | flat | **neutral 90%** | neutral 77% | neutral 66% | ✅ |
+| 22 | "Thanks a lot." | sarcastic | joy 60% | joy 53% | sadness 27% | ❌ |
+| 26 | "Ha ha ha ha ha ha, you're the worst." | laughing | **joy 56%** | joy 50% | joy 26% | ✅ via the transcript: Whisper wrote the laughter as words |
+| 24 | "Haha, you're the worst." | playful | disgust 56% | disgust 70% | sadness 27% | ❌ |
+| 35 | "You're the worst." | playful | disgust 67% | disgust 85% | surprise 36% | ❌ |
+| 27 | "You got the job!" | excited | **joy 90%** | joy 90% | sadness 31% | ✅ from the words |
+| 29 | "You got the job!" | excited | **joy 94%** | joy 95% | surprise 27% | ✅ from the words |
+
+What this shows:
+1. **Angry tone over neutral or positive words now works live**, which was the original
+   complaint (turn 14). Flat speech stays neutral (turn 10).
+2. **Every other tone was missed.** Sadness, sarcasm and a playful voice (turns 21, 22, 24 and 35)
+   all lost to the words. Where the tone should change the meaning (6 lines), the voice won once
+   (turn 14), the transcript rescued one (turn 26), and 4 were missed.
+3. **The voice head is unsure on this microphone.** Its top guess is 25–36% on every line except
+   the angry one (52%), against about 52% on average on the CREMA-D tone test. "Sadness ~27%" comes
+   up on lines that aren't sad.
+4. **It isn't loudness.** The live turns were about 8 dB louder than the training audio (median
+   −22 dB against −30.6 dB for both MELD and CREMA-D), and WavLM's input isn't level-normalised.
+   But replaying the CREMA-D tone test from 10 dB quieter to 14 dB louder keeps the voice head's
+   balanced accuracy between 0.68 and 0.71. The gap is the recording conditions (laptop
+   microphone, room) and natural rather than acted delivery.
+5. **Pip's replies are now the most visible weakness.** They are generic, often close the
+   conversation ("Have a good night!"), apologise when the person is joking ("I'm sorry if my
+   responses weren't clear"), and never mention the tone.
+6. **Speed held:** final tag 441–553 ms, first reply word 0.67–0.88 s and full reply 0.90–1.23 s
+   after the end of each turn, all inside the targets.
+
+Nine lines from one speaker is a spot check, not a measurement. A recorded live tone test (section
+15) would turn it into one.
+
+## 13. Decision log
 
 | Date | Decision | Why |
 |---|---|---|
@@ -461,12 +745,20 @@ done 1.5–2.3 s. Clean numbers on an idle GPU come in Phase 4.
 | 2026-10-16 | Train in fp32 | fp16 mixed precision was 4x slower per step on the GTX 1660 SUPER |
 | 2026-10-16 | Audio capped at the first 15 s | Misaligned multi-minute clips; 99.7% of clips are unaffected |
 | 2026-10-17 | Emotion tag in two stages: voice-only, then words + voice + context | Whisper's p95 (694 ms) alone breaks a 500 ms tag; the voice tag lands in about 50 ms |
-| 2026-10-17 | Reply notes mention a words/voice mismatch only when the fused model sided with the voice | A weak voice-only guess made replies hedge when the fused model was sure |
+| 2026-10-17 | ~~Reply notes mention a words/voice mismatch only when the fused model sided with the voice~~ | A weak voice-only guess made replies hedge when the fused model was sure. Replaced in Phase 5: it almost never fired, because the fused tag follows the words |
 | 2026-10-17 | Voice cues relative to the same person's earlier turns | Works for any voice without calibrating thresholds |
 | 2026-10-17 | One shared WavLM feature function for training and live use | Live features can't drift from the training ones (checked: within float16 rounding) |
 | 2026-10-17 | Keep `fusion_ctx3` (trained on MELD text) live; don't adopt the Whisper-text retrains | No dev gain beyond noise; test 0.513 vs 0.536 for fusion (section 9) |
+| 2026-10-17 | Live model = 3-seed ensemble of `fusion_ctx3`; mixed-text training not adopted | Dev weighted F1 tied; dev macro F1 clearly better (0.422 vs 0.391); +250M parameters, final tag p95 still 935 ms (section 11) |
+| 2026-10-17 | Reply prompt v2: the person's words are the message, the notes go in the system prompt | Third-person replies 12 → 1 of 35, instructions read back 6 → 0 (section 11) |
+| 2026-10-17 | Add CREMA-D to training, for the voice only; MELD stays the foundation and the scoreboard | In the live demo the tag followed the words over the tone; MELD can't teach or test tone, because its labels follow the words (section 12) |
+| 2026-10-17 | Use only CREMA-D clips whose voice-only listener vote matches the intended emotion (3,099 of 7,442) | The robot should react to tone a person can hear; most other clips sound neutral to listeners |
+| 2026-10-17 | Tone test = CREMA-D clips from unseen actors *and* unseen sentences | With only 12 sentences, reusing them would let the model memorise "these words → trust the voice" |
+| 2026-10-17 | Recipe choice fixed before any results: best tone-dev balanced accuracy with MELD dev weighted F1 ≥ 0.613 (current model − 0.01) | Stops the tone gain being bought with MELD accuracy, and keeps test for the final score |
+| 2026-10-17 | Reply notes also mention a mismatch when the voice alone is ≥ 60% sure of a non-calm emotion; plain words get "matter-of-fact" wording instead of the sarcasm note | The person hears the tone even when the fused tag goes with the words; flat words said angrily aren't sarcasm |
+| 2026-10-17 | Live model = 3-seed ensemble of `fusion_ctx3_crema_td25` (CREMA-D + words hidden 25%) | Chosen by the fixed dev rule (tone dev 0.653, MELD dev 0.634); test: tone 0.127 → 0.663, MELD 0.648 → 0.651, Whisper 0.538 → 0.557 (section 12) |
 
-## 12. External components
+## 14. External components
 
 Licences checked 2026-10-16 from each model's Hugging Face card or source repository.
 "Changed" and "checked" fill in as each component is trained or evaluated.
@@ -474,6 +766,7 @@ Licences checked 2026-10-16 from each model's Hugging Face card or source reposi
 | Component | Source | Licence | Changed by us | How we checked it |
 |---|---|---|---|---|
 | MELD dataset | [declare-lab/MELD](https://github.com/declare-lab/MELD) | GPL-3.0 (repo); clips are *Friends* footage | nothing (kept outside the repo) | archive size matches server; `gzip -t` |
+| CREMA-D dataset (Phase 5) | [CheyneyComputerScience/CREMA-D](https://github.com/CheyneyComputerScience/CREMA-D) | ODbL 1.0 / DbCL 1.0 | nothing; only the WAV folder, kept outside the repo | all 7,442 WAVs read as 16 kHz mono; the 4 files the README lists as broken are dropped |
 | Silero VAD | [snakers4/silero-vad](https://github.com/snakers4/silero-vad) | MIT | no | smoke test |
 | Whisper small | [openai/whisper-small](https://huggingface.co/openai/whisper-small) via [Systran/faster-whisper-small](https://huggingface.co/Systran/faster-whisper-small) | Apache-2.0 / MIT | no | smoke test |
 | RoBERTa-base | [FacebookAI/roberta-base](https://huggingface.co/FacebookAI/roberta-base) | MIT | fine-tuned (Phase 2) | smoke test |
@@ -481,6 +774,61 @@ Licences checked 2026-10-16 from each model's Hugging Face card or source reposi
 | Qwen2.5-1.5B-Instruct (Q4_K_M GGUF) | [Qwen/Qwen2.5-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) | Apache-2.0 | prompt only | smoke test |
 | llama.cpp runtime | [abetlen/llama-cpp-python](https://github.com/abetlen/llama-cpp-python) 0.3.4 | MIT | no | smoke test |
 
-## 13. Limitations and what was left out
+**AI-assisted development.** The code and experiments were built with an AI coding assistant
+(Claude Code). Every number in this document comes from a script in this repo, and the JSON files
+in `reports/` are the source of truth for them. I reviewed the design decisions and can explain
+and change each part of the pipeline.
 
-*Filled in at the end.*
+## 15. Limitations and what was left out
+
+**Completed:** the Text + Audio track end to end. That covers data preparation, emotion models
+(text, voice, fusion), a live pipeline with a two-stage emotion tag and a streamed reply, a trace
+demo and a web demo, and an evaluation on live-style Whisper transcripts as well as MELD's typed
+ones. Phase 5 added CREMA-D voice training and a tone test, so the tag also follows the voice
+when the words say little.
+
+**Limitations:**
+- **Accuracy.** About 0.56 weighted F1 on Whisper transcripts of MELD, 0.65 on MELD's typed
+  ones. Rare emotions are recognised poorly: fear and disgust are about 2–3% of the data, with
+  F1 of 0.1–0.3.
+- **Tone is measured on acted speech only.** The tone test (0.663 balanced accuracy) uses
+  CREMA-D's studio recordings of flat sentences. It doesn't cover the other half of the demo
+  complaint, harsh words in a cheerful voice, because there is no labelled set for that, and a
+  happy voice is still mostly missed (1 of 17). In a 9-line live microphone check (section 12),
+  only an angry tone reliably beat the words; sadness, sarcasm and playfulness did not.
+- **MELD isn't a robot conversation.** It's acted TV dialogue with a laugh track and overlapping
+  speakers. One person talking to a robot in a quiet room should be easier for speech-to-text,
+  though less exaggerated emotionally. Accuracy on live speech is not measured.
+- **The voice-only tag is a fast first guess, not a reliable signal** (about 0.46 weighted F1
+  on its own).
+- **Turn-taking is silence-based.** A pause over 400 ms ends a turn, even mid-sentence. There is
+  no barge-in and no speaker identification, so several voices are treated as one person.
+- **Replies come from a 1.5B model.** They are short and on topic, sometimes too literal, and in
+  the Phase 4 check (section 11) the emotion notes changed them without a clear gain in fit. A
+  wrong emotion can mislead the reply, and a right one is often ignored: with an angry voice on
+  flat words, the notes now say so, but Pip rarely acknowledges it (section 12).
+- **Hardware-specific choices.** fp32 everywhere on the GTX 1660 SUPER (fp16 was slower or
+  broken), and a prebuilt llama.cpp wheel that needs Python 3.10–3.12.
+- **Not in the repo:** the MELD and CREMA-D data, features and model weights. Reproducing the
+  results needs both downloads plus about 2 h of preparation and training on a similar GPU.
+
+**Intentionally left out:**
+- **Vision,** the optional extension. The timebox went into making text + audio solid and
+  measuring it honestly instead.
+- **Reinforcement learning,** also optional. Not attempted.
+- **Word-by-word live captions, barge-in, multi-speaker handling, and languages other than
+  English.**
+
+**What I would do next,** in order of expected value:
+1. **A stronger reply model** (Qwen2.5-3B, about 3.8B parameters in total, still under 6B). The
+   emotion state now carries the tone; the 1.5B model mostly doesn't act on it.
+2. **A small live tone test:** 20–30 lines recorded through the demo microphone, including harsh
+   words said cheerfully and kind words said angrily. That's the case CREMA-D can't test.
+3. **Voice features built for emotion** (emotion2vec+), and more happy-voice data. The voice side
+   still has the most headroom, and joy is its blind spot.
+4. **Better speech-to-text** (Whisper large-v3-turbo, or transcribing while the person talks).
+   It costs latency on this GPU, so it needs measuring as a trade-off.
+5. **RoBERTa-large for the words,** trained on a rented or free cloud GPU, because it doesn't fit
+   training in 6 GB.
+6. **A webcam branch** (a facial-expression model feeding the same fusion head) for the vision
+   extension.

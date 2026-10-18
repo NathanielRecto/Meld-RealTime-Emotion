@@ -1,0 +1,161 @@
+{
+  "input": [
+    "1037_IWW_ANG_XX.wav (2.9 s)"
+  ],
+  "events": [
+    {
+      "type": "speech_start"
+    },
+    {
+      "type": "turn_end",
+      "speech_seconds": 2.34
+    },
+    {
+      "type": "state",
+      "stage": "voice",
+      "turn": 1,
+      "transcript": null,
+      "speech_seconds": 2.34,
+      "emotion": {
+        "label": "anger",
+        "confidence": 0.898,
+        "probs": {
+          "anger": 0.898,
+          "disgust": 0.027,
+          "fear": 0.009,
+          "joy": 0.021,
+          "neutral": 0.015,
+          "sadness": 0.01,
+          "surprise": 0.02
+        }
+      },
+      "cues": {
+        "loudness_db": -16.7,
+        "pitch_hz": 246.2,
+        "pitch_variation_semitones": 3.52,
+        "vs_earlier": {}
+      },
+      "t_ms": 36.5
+    },
+    {
+      "type": "state",
+      "stage": "final",
+      "turn": 1,
+      "transcript": "I wonder what this is about.",
+      "emotion": {
+        "label": "anger",
+        "confidence": 0.715,
+        "probs": {
+          "anger": 0.715,
+          "disgust": 0.014,
+          "fear": 0.018,
+          "joy": 0.024,
+          "neutral": 0.103,
+          "sadness": 0.007,
+          "surprise": 0.119
+        }
+      },
+      "sentiment": "negative",
+      "by_modality": {
+        "words": {
+          "label": "neutral",
+          "confidence": 0.548
+        },
+        "voice": {
+          "label": "anger",
+          "confidence": 0.898
+        }
+      },
+      "modalities_agree": false,
+      "cues": {
+        "loudness_db": -16.7,
+        "pitch_hz": 246.2,
+        "pitch_variation_semitones": 3.52,
+        "words_per_second": 2.56,
+        "vs_earlier": {}
+      },
+      "mood": -0.731,
+      "mood_trend": "starting",
+      "latency_ms": {
+        "voice_tag": 36.5,
+        "asr_done": 461.9,
+        "final_tag": 496.8
+      },
+      "t_ms": 496.8
+    },
+    {
+      "type": "reply_done",
+      "turn": 1,
+      "text": "I'm sorry, but I don't understand your request.",
+      "notes": "They clearly sound angry. Their words are matter-of-fact, but their voice sounds angry.",
+      "latency_ms": {
+        "voice_tag": 36.5,
+        "asr_done": 461.9,
+        "final_tag": 496.8,
+        "first_token": 571.7,
+        "reply_done": 710.1
+      },
+      "t_ms": 710.1
+    }
+  ],
+  "final_state": {
+    "type": "state",
+    "stage": "final",
+    "turn": 1,
+    "transcript": "I wonder what this is about.",
+    "emotion": {
+      "label": "anger",
+      "confidence": 0.715,
+      "probs": {
+        "anger": 0.715,
+        "disgust": 0.014,
+        "fear": 0.018,
+        "joy": 0.024,
+        "neutral": 0.103,
+        "sadness": 0.007,
+        "surprise": 0.119
+      }
+    },
+    "sentiment": "negative",
+    "by_modality": {
+      "words": {
+        "label": "neutral",
+        "confidence": 0.548
+      },
+      "voice": {
+        "label": "anger",
+        "confidence": 0.898
+      }
+    },
+    "modalities_agree": false,
+    "cues": {
+      "loudness_db": -16.7,
+      "pitch_hz": 246.2,
+      "pitch_variation_semitones": 3.52,
+      "words_per_second": 2.56,
+      "vs_earlier": {}
+    },
+    "mood": -0.731,
+    "mood_trend": "starting",
+    "latency_ms": {
+      "voice_tag": 36.5,
+      "asr_done": 461.9,
+      "final_tag": 496.8
+    },
+    "t_ms": 496.8
+  },
+  "reply": {
+    "type": "reply_done",
+    "turn": 1,
+    "text": "I'm sorry, but I don't understand your request.",
+    "notes": "They clearly sound angry. Their words are matter-of-fact, but their voice sounds angry.",
+    "latency_ms": {
+      "voice_tag": 36.5,
+      "asr_done": 461.9,
+      "final_tag": 496.8,
+      "first_token": 571.7,
+      "reply_done": 710.1
+    },
+    "t_ms": 710.1
+  }
+}

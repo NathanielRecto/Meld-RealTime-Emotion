@@ -5,8 +5,13 @@ Modes:
   audio   a small head on the frozen WavLM features from scripts/extract_wavlm.py
   fusion  both branches trained together: a fused head plus one head per modality
 
+Phase 5 options for fusion, so the voice counts where the words say little:
+  --crema           add CREMA-D clips (flat sentences, emotion in the voice only) to training
+  --text-dropout P  hide the words from the fused head on a share P of examples
+
 Usage:
     python scripts/train_emotion.py --mode fusion --context 3 --name fusion_ctx3
+    python scripts/train_emotion.py --mode fusion --crema --text-dropout 0.25 --name fusion_ctx3_crema_td25
     python scripts/train_emotion.py --mode text --limit 300 --epochs 1 --name debug   # quick check
 
 Writes reports/phase2_<name>.json and checkpoints/<name>/ (weights and test probabilities,
@@ -22,6 +27,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 import yaml
@@ -43,8 +49,9 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--mode", choices=["text", "audio", "fusion"], required=True)
     ap.add_argument("--name", required=True, help="run name for the report and checkpoint folder")
     ap.add_argument("--context", type=int, default=3, help="earlier turns given to the text branch")
-    ap.add_argument("--text-source", choices=["meld", "whisper"], default="meld",
-                    help="train and score on MELD's typed transcripts or on Whisper's (scripts/transcribe_meld.py)")
+    ap.add_argument("--text-source", choices=["meld", "whisper", "mixed"], default="meld",
+                    help="meld or whisper: train and score on that text (Whisper's from scripts/transcribe_meld.py). "
+                         "mixed: train on both versions of every line, pick and score on Whisper text")
     ap.add_argument("--epochs", type=int, default=None, help="default: 5 with text, 40 audio-only")
     ap.add_argument("--batch", type=int, default=None, help="default: 16 with text, 64 audio-only")
     ap.add_argument("--lr-encoder", type=float, default=1.5e-5, help="RoBERTa learning rate")
@@ -52,6 +59,10 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--class-weight-power", type=float, default=0.5, help="0 = unweighted, 1 = inverse frequency")
     ap.add_argument("--aux-weight", type=float, default=0.5, help="fusion: weight of the per-modality losses")
     ap.add_argument("--modality-dropout", type=float, default=0.15, help="fusion: chance audio is hidden per example")
+    ap.add_argument("--text-dropout", type=float, default=0.0,
+                    help="fusion: chance the words are hidden from the fused head per example (only when the audio is kept)")
+    ap.add_argument("--crema", action="store_true",
+                    help="audio/fusion: add the CREMA-D training clips (scripts/prepare_crema.py), whose label is in the voice only")
     ap.add_argument("--max-len", type=int, default=192, help="max tokens for utterance + context")
     ap.add_argument("--limit", type=int, default=None, help="use only the first N rows of each split (debugging)")
     # fp32 by default: on the GTX 1660 SUPER (no tensor cores) fp16 mixed precision measured 4x
@@ -64,27 +75,31 @@ def parse_args() -> argparse.Namespace:
 # --- data ----------------------------------------------------------------------------------
 
 
-def load_split(root: Path, split: str, args, tok, df=None):
+def load_split(root: Path, split: str, args, tok, df=None, words_carry_label: bool = True):
     """Model inputs for one split. Pass `df` to use a table with different text, e.g. Whisper's
-    transcripts (scripts/evaluate.py); it must keep the manifest's row order."""
+    transcripts. Rows find their WavLM features by clip_id, so a table may repeat rows (mixed-text
+    training lists every line twice). words_carry_label=False marks data like CREMA-D, whose
+    sentences are emotionally flat: the words-only head isn't trained on it."""
     df = load_manifest(root, split) if df is None else df
     feats = None
     if args.mode != "text":
         feats = np.load(root / "features" / f"wavlm_{split}.npy", mmap_mode="r")
         ids = (root / "features" / f"wavlm_{split}_ids.txt").read_text(encoding="utf-8").split("\n")
-        assert ids == df.clip_id.tolist(), f"WavLM features for {split} are stale: rerun extract_wavlm.py"
+        row_of = {clip: i for i, clip in enumerate(ids)}
+        missing = set(df.clip_id) - row_of.keys()
+        assert not missing, f"WavLM features for {split} lack {len(missing)} clips: rerun extract_wavlm.py"
     if args.limit:
         df = df.iloc[: args.limit]
     items = []
     for i, r in enumerate(df.itertuples()):
-        item = {"label": int(r.label), "audio_ok": float(r.audio_ok)}
+        item = {"label": int(r.label), "audio_ok": float(r.audio_ok), "text_ok": float(words_carry_label)}
         if tok is not None:
             target, context = format_text(r.speaker, r.text, r.prev_turns, args.context)
             # truncation=True cuts the longer of the two first, which is almost always the context
             enc = tok(target, context or None, truncation=True, max_length=args.max_len)
             item["input_ids"] = enc["input_ids"]
         if feats is not None:
-            item["audio"] = np.array(feats[i])  # float16 (13, 768); widened per batch
+            item["audio"] = np.array(feats[row_of[r.clip_id]])  # float16 (13, 768); widened per batch
         items.append(item)
     return df.reset_index(drop=True), items
 
@@ -92,7 +107,8 @@ def load_split(root: Path, split: str, args, tok, df=None):
 def make_collate(pad_id: int):
     def collate(batch: list[dict]) -> dict:
         out = {"labels": torch.tensor([b["label"] for b in batch]),
-               "audio_ok": torch.tensor([b["audio_ok"] for b in batch])}
+               "audio_ok": torch.tensor([b["audio_ok"] for b in batch]),
+               "text_ok": torch.tensor([b["text_ok"] for b in batch])}
         if "input_ids" in batch[0]:
             longest = max(len(b["input_ids"]) for b in batch)
             ids = torch.full((len(batch), longest), pad_id)
@@ -110,11 +126,13 @@ def make_collate(pad_id: int):
 # --- training ------------------------------------------------------------------------------
 
 
-def forward(model, batch, amp: bool, audio_present=None) -> dict:
+def forward(model, batch, amp: bool, audio_present=None, text_present=None) -> dict:
     kw = {}
     if "input_ids" in batch:
         kw["input_ids"] = batch["input_ids"].cuda()
         kw["attention_mask"] = batch["attention_mask"].cuda()
+        if text_present is not None:
+            kw["text_present"] = text_present.cuda()
     if "audio" in batch:
         kw["audio"] = batch["audio"].cuda()
         kw["audio_present"] = (batch["audio_ok"] if audio_present is None else audio_present).cuda()
@@ -129,13 +147,13 @@ def masked_ce(logits, labels, weights, mask=None):
     return (loss * mask).sum() / mask.sum().clamp(min=1.0)
 
 
-def compute_loss(model, out, labels, present, weights, aux_weight):
+def compute_loss(model, out, labels, present, text_ok, weights, aux_weight):
     if model.mode == "text":
         return masked_ce(out["fused"], labels, weights)
     if model.mode == "audio":  # clips without audio carry no information here
         return masked_ce(out["fused"], labels, weights, present)
     return (masked_ce(out["fused"], labels, weights)
-            + aux_weight * (masked_ce(out["text"], labels, weights)
+            + aux_weight * (masked_ce(out["text"], labels, weights, text_ok)
                             + masked_ce(out["audio"], labels, weights, present)))
 
 
@@ -143,14 +161,21 @@ def train_epoch(model, loader, opt, sched, scaler, weights, args, amp: bool) -> 
     model.train()
     total, seen = 0.0, 0
     for batch in tqdm(loader, desc="  train", leave=False):
-        present = batch["audio_ok"].clone()
+        present, text_ok = batch["audio_ok"].clone(), batch["text_ok"]
+        text_present = None
         if model.mode == "fusion" and args.modality_dropout > 0:
             # Sometimes hide the audio so the fused head can't lean on it blindly and still
-            # works when a clip's audio is missing.
-            present *= (torch.rand_like(present) >= args.modality_dropout).float()
-        out = forward(model, batch, amp, present)
+            # works when a clip's audio is missing. Never where the label is in the voice only.
+            hide = (torch.rand_like(present) < args.modality_dropout) & (text_ok > 0)
+            present *= (~hide).float()
+        if model.mode == "fusion" and args.text_dropout > 0:
+            # Sometimes hide the words, so the fused head must also learn to read the voice.
+            # Only where the audio is kept: with both hidden there is nothing to go on.
+            hide = (torch.rand_like(present) < args.text_dropout) & (present > 0)
+            text_present = (~hide).float()
+        out = forward(model, batch, amp, present, text_present)
         labels = batch["labels"].cuda()
-        loss = compute_loss(model, out, labels, present.cuda(), weights, args.aux_weight)
+        loss = compute_loss(model, out, labels, present.cuda(), text_ok.cuda(), weights, args.aux_weight)
         opt.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
         scaler.unscale_(opt)
@@ -201,16 +226,30 @@ def main() -> None:
 
     tok = AutoTokenizer.from_pretrained(text_name) if uses_text else None
     tables = {s: load_manifest(root, s) for s in ("train", "dev", "test")}
-    if uses_text and args.text_source == "whisper":
-        tables = {s: with_whisper_text(df, root, s) for s, df in tables.items()}
+    if uses_text and args.text_source in ("whisper", "mixed"):
+        whisper = {s: with_whisper_text(df, root, s) for s, df in tables.items()}
+        if args.text_source == "mixed":
+            # Every training line twice: as typed in MELD and as Whisper heard it. Dev and test stay
+            # on Whisper text, the live condition, so the model is picked and scored on what it reads.
+            whisper["train"] = pd.concat([tables["train"], whisper["train"]], ignore_index=True)
+        tables = whisper
     data = {s: load_split(root, s, args, tok, df=df) for s, df in tables.items()}
     y = {s: df.label.to_numpy() for s, (df, _) in data.items()}
+    train_items, y_train = data["train"][1], y["train"]
+    n_crema = 0
+    if args.crema:
+        # Extra training rows only: model selection and the scores below stay on MELD dev and test.
+        if args.mode == "text":
+            sys.exit("--crema adds voice-only labels; it needs --mode audio or fusion")
+        crema_df, crema_items = load_split(Path(cfg["paths"]["crema_root"]), "train", args, tok, words_carry_label=False)
+        train_items, y_train = train_items + crema_items, np.concatenate([y_train, crema_df.label.to_numpy()])
+        n_crema = len(crema_items)
     collate = make_collate(tok.pad_token_id if tok else 0)
-    train_loader = DataLoader(data["train"][1], batch_size=batch_size, shuffle=True, collate_fn=collate)
+    train_loader = DataLoader(train_items, batch_size=batch_size, shuffle=True, collate_fn=collate)
     dev_loader = DataLoader(data["dev"][1], batch_size=64, collate_fn=collate)
     test_loader = DataLoader(data["test"][1], batch_size=64, collate_fn=collate)
 
-    weights_np = class_weights(y["train"], args.class_weight_power)
+    weights_np = class_weights(y_train, args.class_weight_power)
     weights = torch.tensor(weights_np, dtype=torch.float32, device="cuda")
     model = EmotionModel(args.mode, text_model=text_name).cuda()
     encoder = [p for n, p in model.named_parameters() if n.startswith("text_encoder.")]
@@ -224,8 +263,8 @@ def main() -> None:
     out_dir = ROOT / "checkpoints" / args.name
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"{args.name}: mode={args.mode} context={args.context if uses_text else '-'} "
-          f"text={args.text_source if uses_text else '-'} "
-          f"train={len(data['train'][1])} epochs={epochs} batch={batch_size} amp={amp}", flush=True)
+          f"text={args.text_source if uses_text else '-'} text_dropout={args.text_dropout} "
+          f"train={len(data['train'][1])}+{n_crema} CREMA-D epochs={epochs} batch={batch_size} amp={amp}", flush=True)
     torch.cuda.reset_peak_memory_stats()
     history, best_f1, best_epoch = [], -1.0, 0
     t_start = time.perf_counter()
@@ -254,6 +293,7 @@ def main() -> None:
         "hyperparams": {"epochs": epochs, "batch": batch_size, "lr_encoder": args.lr_encoder,
                         "lr_head": args.lr_head, "class_weight_power": args.class_weight_power,
                         "aux_weight": args.aux_weight, "modality_dropout": args.modality_dropout,
+                        "text_dropout": args.text_dropout, "crema_train_clips": n_crema,
                         "max_len": args.max_len, "amp": amp, "seed": args.seed, "limit": args.limit},
         "class_weights": {e: round(float(w), 3) for e, w in zip(EMOTIONS, weights_np)},
         "history": history,
