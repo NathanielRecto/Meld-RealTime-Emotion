@@ -176,6 +176,34 @@ fit how the person felt better than one written without them? Rated blind, no: t
 notes was better on 14 of 35 lines and worse on 18 (`python scripts/tally_reply_sheet.py`; DESIGN
 section 11).
 
+## Limitations
+
+The full list, with the evidence behind each point, is in
+[docs/DESIGN.md section 15](docs/DESIGN.md#15-limitations-and-what-was-left-out).
+
+- **Accuracy.** 65.3% accuracy (weighted F1 0.651) on MELD's typed transcripts and 57.1% (0.557) on
+  Whisper's live-style ones. Rare emotions are recognised poorly: fear and disgust are 2–3% of
+  MELD, with F1 around 0.25. MELD itself is noisy; its annotators often disagreed.
+- **Tone is measured on acted speech.** The tone test (0.663 balanced accuracy) uses CREMA-D's
+  studio recordings. In a 9-line live microphone check, only an angry voice reliably outweighed the
+  words; sadness, sarcasm and a playful voice were missed. On a laptop microphone the voice side is
+  rarely sure of itself, and a happy voice is mostly missed even on the tone test (1 of 17).
+- **Harsh words in a cheerful voice aren't measured,** because no labelled data covers that case.
+- **Replies come from a small 1.5B model.** It mostly ignores the emotion: rated blind, replies
+  written with the emotion notes were no better than replies without them (14 vs 18 of 35). A 3B
+  model acts on the tone far more often but doesn't fit a 6 GB GPU reliably.
+- **Speech-to-text costs accuracy and sometimes time.** Whisper small's mistakes cost about 8 points
+  of accuracy against typed text (65.3% vs 57.1%), and it once looped on a long clip (13 s worst case).
+- **Turn-taking is silence-based.** A pause over 400 ms ends a turn, even mid-sentence. There's no
+  barge-in and no speaker identification, so several voices count as one person.
+- **Built for one machine.** Tuned and timed on a 6 GB GTX 1660 SUPER under Windows (fp32
+  throughout; the prebuilt llama.cpp wheel needs Python 3.10–3.12). Other GPUs and operating systems
+  aren't tested.
+- **Data and weights.** MELD and CREMA-D aren't in the repo. The published weights were trained on
+  them (MELD's clips are *Friends* footage), so they're for research and demo use.
+- **Not built:** the optional vision extension, reinforcement learning, languages other than English,
+  and word-by-word live captions.
+
 ## Layout
 
 ```
