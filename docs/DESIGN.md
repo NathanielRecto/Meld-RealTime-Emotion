@@ -724,6 +724,27 @@ What this shows:
 Nine lines from one speaker is a spot check, not a measurement. A recorded live tone test (section
 15) would turn it into one.
 
+**Fixing the help-desk replies.** The nine lines were replayed through the reply model with the
+notes their live states produced, 2 seeds each (18 replies per condition):
+
+| Reply history | Prompt | Say goodbye | Help-desk offer | Apologise |
+|---|---|---|---|---|
+| Pip's actual live replies | v2 (unchanged) | 6 | 3 | 4 |
+| Pip's actual live replies | v3 ("like a friend, not an assistant", "don't say goodbye unless they do", "play along with teasing") | 6 | 5 | 4 |
+| **Pip's actual live replies, cleaned** | **v2** | **2** | **0** | **1** |
+| Pip's own new replies, cleaned | v2 | 1 | 0 | 0 |
+
+- **The habits snowball.** Once Pip says "Let me know if you need anything else", that reply sits
+  in the history the reply model sees next turn, and the 1.5B model copies itself. Replayed
+  without that history, the same prompt rarely does it.
+- **A stricter prompt didn't help** (v3), so it was dropped.
+- **Cleaning the history did.** `Conversation.chat_history` now passes Pip's earlier replies
+  through `remembered()`, which drops sign-off and help-desk sentences ("Have a good night!",
+  "Let me know if…"). What the person heard is unchanged.
+- **It doesn't make Pip act on the tone.** On the angry "It's 11 o'clock!" it still talks about
+  the time ("Well, it's already late. Time for some snacks and a movie!"). That still needs a
+  stronger reply model.
+
 ## 13. Decision log
 
 | Date | Decision | Why |
@@ -756,6 +777,7 @@ Nine lines from one speaker is a spot check, not a measurement. A recorded live 
 | 2026-10-17 | Tone test = CREMA-D clips from unseen actors *and* unseen sentences | With only 12 sentences, reusing them would let the model memorise "these words → trust the voice" |
 | 2026-10-17 | Recipe choice fixed before any results: best tone-dev balanced accuracy with MELD dev weighted F1 ≥ 0.613 (current model − 0.01) | Stops the tone gain being bought with MELD accuracy, and keeps test for the final score |
 | 2026-10-17 | Reply notes also mention a mismatch when the voice alone is ≥ 60% sure of a non-calm emotion; plain words get "matter-of-fact" wording instead of the sarcasm note | The person hears the tone even when the fused tag goes with the words; flat words said angrily aren't sarcasm |
+| 2026-10-17 | Reply history drops Pip's own sign-off and help-desk sentences; the prompt stays v2 | They snowballed in the live check. With the live history, 18 replies: goodbye 6 → 2, help-desk 3 → 0, apology 4 → 1. A stricter prompt (v3) didn't help (section 12) |
 | 2026-10-17 | Live model = 3-seed ensemble of `fusion_ctx3_crema_td25` (CREMA-D + words hidden 25%) | Chosen by the fixed dev rule (tone dev 0.653, MELD dev 0.634); test: tone 0.127 → 0.663, MELD 0.648 → 0.651, Whisper 0.538 → 0.557 (section 12) |
 
 ## 14. External components

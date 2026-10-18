@@ -14,6 +14,9 @@ VOICE_SURE = 0.6  # voice-only confidence at which a words-vs-voice mismatch is 
 # Prompt v2 (DESIGN section 11): the person's own words are the user message and the notes sit in the
 # system prompt. v1 sent 'They said: "..."' with third-person notes, and the small model copied that
 # framing ("It's clear they're surprised") and read its instructions back ("I'll respond gently").
+# A v3 prompt ("like a friend, not an assistant", "don't say goodbye") was tried after the live mic
+# check and dropped: it didn't reduce help-desk replies. Those snowball from the reply history, which
+# Conversation.chat_history now cleans instead (DESIGN section 12).
 SYSTEM = (
     "You are {name}, a small, warm character robot talking with one person. Speak to them directly, as \"you\". "
     "Reply in one or two short sentences, under {max_words} words in total, responding to what they just said "
